@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PanoCloud Viewer</title>
+  <link rel="stylesheet" href="./third_party/pannellum/pannellum.css">
+  <style>
+    :root {
+      --bg: #efe6d7;
+      --panel: rgba(255, 250, 242, 0.95);
+      --line: #d8cdbd;
+      --ink: #1f2a30;
+      --muted: #67717a;
+      --accent: #0f6c66;
+      --accent-soft: #deeee8;
+      --danger: #a24632;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(255, 247, 231, 0.95), transparent 28%),
+        linear-gradient(135deg, #f1eadf 0%, #e6dcc9 100%);
+    }
+    .app {
+      display: grid;
+      grid-template-columns: minmax(420px, 48%) minmax(460px, 1fr);
+      gap: 18px;
+      min-height: 100vh;
+      padding: 18px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(216, 205, 189, 0.95);
+      border-radius: 22px;
+      box-shadow: 0 18px 45px rgba(72, 54, 27, 0.12);
+      overflow: hidden;
+      backdrop-filter: blur(4px);
+    }
+    .left-panel, .viewer-panel {
+      display: grid;
+      grid-template-rows: auto auto auto 1fr auto;
+    }
+    .header { padding: 18px 20px 10px; }
+    h1, h2 { margin: 0; font-weight: 700; letter-spacing: 0.01em; }
+    h1 { font-size: 1.28rem; }
+    h2 { font-size: 1rem; }
+    .subtle { margin-top: 6px; color: var(--muted); font-size: 0.95rem; line-height: 1.35; }
+    .toolbar, .viewer-toolbar, .cloud-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding: 0 20px 14px;
+    }
+    .cloud-controls {
+      gap: 12px 16px;
+      border-top: 1px solid rgba(216, 205, 189, 0.7);
+      border-bottom: 1px solid rgba(216, 205, 189, 0.7);
+      padding-top: 14px;
+      padding-bottom: 14px;
+      background: rgba(255, 255, 255, 0.34);
+    }
+    .control-group {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .control-label { font-size: 0.88rem; color: var(--muted); }
+    .two-d-only.hidden-by-mode { display: none !important; }
+    .segmented {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.72);
+    }
+    .segmented button {
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: var(--accent);
+      padding: 10px 16px;
+    }
+    .segmented button.active {
+      background: var(--accent);
+      color: white;
+    }
+    button, input[type="file"]::file-selector-button {
+      border: 0;
+      border-radius: 999px;
+      background: var(--accent);
+      color: white;
+      padding: 10px 14px;
+      font-size: 0.92rem;
+      cursor: pointer;
+    }
+    button.secondary, input[type="file"]::file-selector-button {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    input[type="range"] { accent-color: var(--accent); }
+    .range-group {
+      display: grid;
+      gap: 8px;
+      min-width: 290px;
+    }
+    .range-values {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+    .dual-range {
+      position: relative;
+      width: 290px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+    }
+    .dual-range .track,
+    .dual-range .track-active {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 6px;
+      border-radius: 999px;
+    }
+    .dual-range .track { background: rgba(31, 42, 48, 0.12); }
+    .dual-range .track-active { background: rgba(15, 108, 102, 0.26); }
+    .dual-range input[type="range"] {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      margin: 0;
+      background: transparent;
+      pointer-events: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .dual-range input[type="range"]::-webkit-slider-thumb {
+      pointer-events: auto;
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+      cursor: pointer;
+    }
+    .dual-range input[type="range"]::-moz-range-thumb {
+      pointer-events: auto;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+      cursor: pointer;
+    }
+    .dual-range input[type="range"]::-webkit-slider-runnable-track,
+    .dual-range input[type="range"]::-moz-range-track {
+      background: transparent;
+      border: 0;
+    }
+    #pointSizeRange { width: 140px; }
+    .scene-wrap, .viewer-wrap { padding: 0 18px 18px; }
+    .viewer-wrap { position: relative; }
+    .scene-stack { position: relative; height: min(66vh, 760px); }
+    #mapCanvas, #potreeFrame, #pannellumViewer, #viewerCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 18px;
+    }
+    #mapCanvas {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.78), rgba(238,231,221,0.94));
+      cursor: grab;
+    }
+    #potreeFrame {
+      border: 1px solid var(--line);
+      background: #f5eee4;
+    }
+    .hidden { display: none !important; }
+    .dragging { cursor: grabbing !important; }
+    #pannellumViewer {
+      height: min(60vh, 720px);
+      border: 1px solid #304048;
+      background:
+        radial-gradient(circle at center, rgba(61, 80, 88, 0.55), transparent 35%),
+        linear-gradient(180deg, #1b262c 0%, #22313a 45%, #151c20 100%);
+    }
+    #viewerCanvas {
+      position: absolute;
+      inset: 0;
+      height: min(60vh, 720px);
+      border: 1px solid #304048;
+      background:
+        radial-gradient(circle at center, rgba(61, 80, 88, 0.55), transparent 35%),
+        linear-gradient(180deg, #1b262c 0%, #22313a 45%, #151c20 100%);
+      cursor: grab;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      padding: 0 20px 20px;
+    }
+    .stat {
+      background: rgba(255,255,255,0.62);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .stat-label { margin-bottom: 4px; font-size: 0.78rem; color: var(--muted); }
+    .stat-value { font-size: 1rem; font-weight: 700; }
+    .meta { display: grid; gap: 8px; padding: 0 20px 20px; }
+    .meta-row {
+      display: grid;
+      grid-template-columns: 96px 1fr;
+      gap: 10px;
+      font-size: 0.92rem;
+      align-items: start;
+    }
+    .meta-row span:first-child { color: var(--muted); }
+    .hint, .status { padding: 0 20px 18px; font-size: 0.9rem; }
+    .hint { color: var(--muted); }
+    .status { color: var(--danger); min-height: 1.2em; }
+    @media (max-width: 1180px) {
+      .app { grid-template-columns: 1fr; }
+      .scene-stack, #pannellumViewer { height: 48vh; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .range-group, .dual-range { min-width: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="panel left-panel">
+      <div class="header">
+        <h1>Mračno bodů</h1>
+        <div class="subtle">`2D` slouží jako rychlý přehled a výškový řez. `3D` běží přes Potree nad plným rozlišením point cloudu.</div>
+      </div>
+      <div class="toolbar">
+        <div class="segmented">
+          <button id="mode2dBtn" class="active" type="button">2D</button>
+          <button id="mode3dBtn" type="button">3D Potree</button>
+        </div>
+        <button id="fitBtn" class="two-d-only" type="button">Vycentrovat</button>
+        <button id="firstBtn" class="secondary" type="button">První snímek</button>
+        <button id="lastBtn" class="secondary" type="button">Poslední snímek</button>
+      </div>
+      <div id="cloudControls" class="cloud-controls two-d-only">
+        <div class="control-group">
+          <span class="control-label">Výběr Z</span>
+          <div class="range-group">
+            <div class="range-values">
+              <span id="zMinValue">-</span>
+              <span id="zMaxValue">-</span>
+            </div>
+            <div class="dual-range">
+              <div class="track"></div>
+              <div id="zTrackActive" class="track-active"></div>
+              <input id="zMinRange" type="range" min="0" max="100" step="0.1" value="0">
+              <input id="zMaxRange" type="range" min="0" max="100" step="0.1" value="100">
+            </div>
+          </div>
+          <button id="resetZBtn" class="secondary" type="button">Celá výška</button>
+        </div>
+        <div class="control-group">
+          <span class="control-label">Velikost bodu</span>
+          <input id="pointSizeRange" type="range" min="1" max="4" step="0.25" value="1.25">
+        </div>
+      </div>
+      <div class="scene-wrap">
+        <div class="scene-stack">
+          <canvas id="mapCanvas" width="1400" height="1000"></canvas>
+          <iframe id="potreeFrame" class="hidden" src="./potree_3d.html" title="Potree 3D"></iframe>
+        </div>
+      </div>
+      <div id="sceneStatus" class="status"></div>
+      <div class="stats">
+        <div class="stat"><div class="stat-label">Snímků</div><div id="shotCount" class="stat-value">0</div></div>
+        <div class="stat"><div class="stat-label">Délka trasy</div><div id="routeLength" class="stat-value">0 m</div></div>
+        <div class="stat"><div class="stat-label">2D mračno</div><div id="cloudCount" class="stat-value">auto</div></div>
+        <div class="stat"><div class="stat-label">Řez Z</div><div id="zInfo" class="stat-value">-</div></div>
+      </div>
+    </section>
+
+    <section class="panel viewer-panel">
+      <div class="header">
+        <h2 id="viewerTitle">360 Panoramata</h2>
+        <div class="subtle">Tažením se rozhlížíš do stran i nahoru a dolů, kolečko mění přiblížení. Výběr snímku je propojený s 2D i 3D scénou.</div>
+      </div>
+      <div class="viewer-toolbar">
+        <button id="prevBtn" type="button">Předchozí</button>
+        <button id="nextBtn" type="button">Další</button>
+        <button id="resetViewBtn" class="secondary" type="button">Reset pohledu</button>
+      </div>
+      <div class="viewer-wrap">
+        <div id="pannellumViewer"></div>
+        <canvas id="viewerCanvas" class="hidden" width="1400" height="900"></canvas>
+      </div>
+      <div id="viewerStatus" class="status"></div>
+      <div class="meta">
+        <div class="meta-row"><span>Soubor</span><span id="metaFile">-</span></div>
+        <div class="meta-row"><span>Čas</span><span id="metaTime">-</span></div>
+        <div class="meta-row"><span>Poloha</span><span id="metaPosition">-</span></div>
+        <div class="meta-row"><span>Orientace</span><span id="metaOrientation">-</span></div>
+        <div class="meta-row"><span>Typ</span><span id="metaType">-</span></div>
+      </div>
+      <div class="hint">2D: kolečko zoom, tah posun. 3D Potree: levé tlačítko rotace, pravé posun, kolečko zoom.</div>
+    </section>
+  </main>
+
+  <script src="./third_party/pannellum/pannellum.js"></script>
+  <script>
+    const PANORAMA_POSITIONS = window.PANORAMA_POSITIONS || null;
+  </script>
+  <script src="./panorama_positions.js"></script>
+  <script>
+    const state = {
+      shots: Array.isArray(window.PANORAMA_POSITIONS) ? window.PANORAMA_POSITIONS : [],
+      selectedIndex: -1,
+      image: null,
+      panoramaViewer: null,
+      panoramaSyncTimer: null,
+      pointCloud: null,
+      visibleCloudCount: 0,
+      viewMode: "2d",
+      view360: { yaw: 0.5, pitch: 0.5, zoom: 1.35 },
+      mapView: { scale: 1, offsetX: 0, offsetY: 0 },
+      layout: { cssMapWidth: 1, cssMapHeight: 1, cssViewerWidth: 1, cssViewerHeight: 1 },
+      zBounds: { min: 0, max: 100 },
+      mapSceneDirty: true,
+      lastOverlaySyncAt: 0,
+      lastOverlayYawDeg: 0,
+      lastOverlayPitchDeg: 0
+    };
+
+    const mapCacheCanvas = document.createElement("canvas");
+    const mapCacheCtx = mapCacheCanvas.getContext("2d");
+
+    const mapCanvas = document.getElementById("mapCanvas");
+    const mapCtx = mapCanvas.getContext("2d");
+    const potreeFrame = document.getElementById("potreeFrame");
+    const pannellumViewerEl = document.getElementById("pannellumViewer");
+    const viewerCanvas = document.getElementById("viewerCanvas");
+    const viewerCtx = viewerCanvas.getContext("2d");
+    const shotCountEl = document.getElementById("shotCount");
+    const routeLengthEl = document.getElementById("routeLength");
+    const cloudCountEl = document.getElementById("cloudCount");
+    const zInfoEl = document.getElementById("zInfo");
+    const viewerTitleEl = document.getElementById("viewerTitle");
+    const metaFileEl = document.getElementById("metaFile");
+    const metaTimeEl = document.getElementById("metaTime");
+    const metaPositionEl = document.getElementById("metaPosition");
+    const metaOrientationEl = document.getElementById("metaOrientation");
+    const metaTypeEl = document.getElementById("metaType");
+    const sceneStatusEl = document.getElementById("sceneStatus");
+    const viewerStatusEl = document.getElementById("viewerStatus");
+    const zMinRange = document.getElementById("zMinRange");
+    const zMaxRange = document.getElementById("zMaxRange");
+    const zMinValueEl = document.getElementById("zMinValue");
+    const zMaxValueEl = document.getElementById("zMaxValue");
+    const zTrackActiveEl = document.getElementById("zTrackActive");
+    const pointSizeRange = document.getElementById("pointSizeRange");
+
+    function setSceneStatus(message) { sceneStatusEl.textContent = message || ""; }
+    function setViewerStatus(message) { viewerStatusEl.textContent = message || ""; }
+    function formatNumber(value, digits = 3) { return Number(value).toFixed(digits); }
+    function zoomToHfov(zoom) { return Math.max(35, Math.min(120, 120 / Math.max(Number(zoom), 0.01))); }
+    function hfovToZoom(hfov) { return Math.max(0.45, Math.min(4, 120 / Math.max(Number(hfov), 1))); }
+    function fractionToYawDegrees(fraction) { return ((((fraction % 1) + 1) % 1) * 360) - 180; }
+    function fractionToPitchDegrees(fraction) { return (0.5 - fraction) * 120; }
+    function yawDegreesToFraction(value) { return (((Number(value) || 0) + 180) / 360); }
+    function pitchDegreesToFraction(value) { return Math.min(0.97, Math.max(0.03, 0.5 - (Number(value) || 0) / 120)); }
+    function degreesToRadians(value) { return value * Math.PI / 180; }
+
+    function resolvePanoramaSrc(shot) {
+      if (!shot) return "";
+      if (shot.image_name) {
+        return `./panoramas/${shot.image_name}`;
+      }
+      return shot.image || "";
+    }
+
+    function routeLength(shots) {
+      let total = 0;
+      for (let i = 1; i < shots.length; i += 1) {
+        const dx = shots[i].x - shots[i - 1].x;
+        const dy = shots[i].y - shots[i - 1].y;
+        const dz = shots[i].z - shots[i - 1].z;
+        total += Math.sqrt(dx * dx + dy * dy + dz * dz);
+      }
+      return total;
+    }
+
+    function emptyBounds() {
+      return { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: Infinity, maxZ: -Infinity };
+    }
+
+    function extendBounds(bounds, x, y, z = 0) {
+      bounds.minX = Math.min(bounds.minX, x);
+      bounds.maxX = Math.max(bounds.maxX, x);
+      bounds.minY = Math.min(bounds.minY, y);
+      bounds.maxY = Math.max(bounds.maxY, y);
+      bounds.minZ = Math.min(bounds.minZ, z);
+      bounds.maxZ = Math.max(bounds.maxZ, z);
+    }
+
+    function computeSceneBounds() {
+      const bounds = emptyBounds();
+      state.shots.forEach((shot) => extendBounds(bounds, shot.x, shot.y, shot.z));
+      if (state.pointCloud) {
+        const b = state.pointCloud.bounds;
+        extendBounds(bounds, b.minX, b.minY, b.minZ);
+        extendBounds(bounds, b.maxX, b.maxY, b.maxZ);
+      }
+      if (!Number.isFinite(bounds.minX)) {
+        return { minX: 0, maxX: 1, minY: 0, maxY: 1, minZ: 0, maxZ: 1 };
+      }
+      return bounds;
+    }
+
+    function fitMapToData() {
+      const bounds = computeSceneBounds();
+      const pad = 48;
+      const width = state.layout.cssMapWidth;
+      const height = state.layout.cssMapHeight;
+      const spanX = Math.max(bounds.maxX - bounds.minX, 1e-9);
+      const spanY = Math.max(bounds.maxY - bounds.minY, 1e-9);
+      const scale = Math.min((width - pad * 2) / spanX, (height - pad * 2) / spanY);
+      const centerX = (bounds.minX + bounds.maxX) / 2;
+      const centerY = (bounds.minY + bounds.maxY) / 2;
+      state.mapView.scale = scale;
+      state.mapView.offsetX = width / 2 - centerX * scale;
+      state.mapView.offsetY = height / 2 + centerY * scale;
+      markMapSceneDirty();
+    }
+
+    function worldToScreen2d(x, y) {
+      return { x: x * state.mapView.scale + state.mapView.offsetX, y: -y * state.mapView.scale + state.mapView.offsetY };
+    }
+
+    function screenToWorld2d(x, y) {
+      return { x: (x - state.mapView.offsetX) / state.mapView.scale, y: -(y - state.mapView.offsetY) / state.mapView.scale };
+    }
+
+    function setZSliderBounds(min, max) {
+      state.zBounds.min = min;
+      state.zBounds.max = max;
+      zMinRange.min = String(min);
+      zMinRange.max = String(max);
+      zMaxRange.min = String(min);
+      zMaxRange.max = String(max);
+      zMinRange.value = String(min);
+      zMaxRange.value = String(max);
+      syncZRangeUi();
+    }
+
+    function syncZRangeUi() {
+      const min = Number(zMinRange.value);
+      const max = Number(zMaxRange.value);
+      zMinValueEl.textContent = formatNumber(min, 2);
+      zMaxValueEl.textContent = formatNumber(max, 2);
+      const full = Math.max(state.zBounds.max - state.zBounds.min, 1e-9);
+      const start = ((min - state.zBounds.min) / full) * 100;
+      const end = ((max - state.zBounds.min) / full) * 100;
+      zTrackActiveEl.style.left = `${start}%`;
+      zTrackActiveEl.style.right = `${100 - end}%`;
+    }
+
+    function clampZRange(which) {
+      let min = Number(zMinRange.value);
+      let max = Number(zMaxRange.value);
+      if (which === "min" && min > max) {
+        max = min;
+        zMaxRange.value = String(max);
+      }
+      if (which === "max" && max < min) {
+        min = max;
+        zMinRange.value = String(min);
+      }
+      syncZRangeUi();
+    }
+
+    function visibleZRange() {
+      return { min: Number(zMinRange.value), max: Number(zMaxRange.value) };
+    }
+
+    function isShotVisibleIn2d(shot, zRange = visibleZRange()) {
+      return shot.z >= zRange.min && shot.z <= zRange.max;
+    }
+
+    function updateStats() {
+      shotCountEl.textContent = String(state.shots.length);
+      routeLengthEl.textContent = `${routeLength(state.shots).toFixed(1)} m`;
+      if (state.pointCloud) {
+        cloudCountEl.textContent = `${state.visibleCloudCount} / ${state.pointCloud.drawCount}`;
+        zInfoEl.textContent = `${formatNumber(zMinRange.value || 0, 1)} až ${formatNumber(zMaxRange.value || 0, 1)}`;
+      } else {
+        cloudCountEl.textContent = "není";
+        zInfoEl.textContent = "-";
+      }
+    }
+
+    function currentViewYawDegrees() {
+      return fractionToYawDegrees(state.view360.yaw);
+    }
+
+    function currentWorldYawRadians(shot) {
+      return Number(shot.yaw || 0) - degreesToRadians(currentViewYawDegrees());
+    }
+
+    function drawViewDirectionMarker(shot) {
+      const center = worldToScreen2d(shot.x, shot.y);
+      const yawRad = currentWorldYawRadians(shot);
+      const forward = { x: Math.cos(yawRad), y: Math.sin(yawRad) };
+      const side = { x: -forward.y, y: forward.x };
+      const tipDistance = 18;
+      const baseDistance = 7;
+      const halfWidth = 6;
+      const tip = {
+        x: center.x + forward.x * tipDistance,
+        y: center.y - forward.y * tipDistance
+      };
+      const baseCenter = {
+        x: center.x + forward.x * baseDistance,
+        y: center.y - forward.y * baseDistance
+      };
+      const left = {
+        x: baseCenter.x + side.x * halfWidth,
+        y: baseCenter.y - side.y * halfWidth
+      };
+      const right = {
+        x: baseCenter.x - side.x * halfWidth,
+        y: baseCenter.y + side.y * halfWidth
+      };
+      mapCtx.beginPath();
+      mapCtx.moveTo(tip.x, tip.y);
+      mapCtx.lineTo(left.x, left.y);
+      mapCtx.lineTo(right.x, right.y);
+      mapCtx.closePath();
+      mapCtx.fillStyle = "rgba(217,109,63,0.98)";
+      mapCtx.fill();
+      mapCtx.lineWidth = 1.5;
+      mapCtx.strokeStyle = "rgba(255,255,255,0.98)";
+      mapCtx.stroke();
+    }
+
+    function markMapSceneDirty() {
+      state.mapSceneDirty = true;
+    }
+
+    function render2dStaticScene() {
+      const width = state.layout.cssMapWidth;
+      const height = state.layout.cssMapHeight;
+      mapCacheCanvas.width = mapCanvas.width;
+      mapCacheCanvas.height = mapCanvas.height;
+      mapCacheCtx.setTransform(1, 0, 0, 1, 0, 0);
+      mapCacheCtx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+      mapCacheCtx.clearRect(0, 0, width, height);
+      const grad = mapCacheCtx.createLinearGradient(0, 0, 0, height);
+      grad.addColorStop(0, "rgba(255,255,255,0.92)");
+      grad.addColorStop(1, "rgba(235,228,217,0.96)");
+      mapCacheCtx.fillStyle = grad;
+      mapCacheCtx.fillRect(0, 0, width, height);
+
+      state.visibleCloudCount = 0;
+      const zRange = visibleZRange();
+      if (state.pointCloud) {
+        const pointSize = Math.max(1, Math.round(Number(pointSizeRange.value)));
+        const cloud = state.pointCloud;
+        for (let i = 0; i < cloud.drawCount; i += 1) {
+          const z = cloud.z[i];
+          if (z < zRange.min || z > zRange.max) continue;
+          const p = worldToScreen2d(cloud.x[i], cloud.y[i]);
+          if (p.x < -2 || p.y < -2 || p.x > width + 2 || p.y > height + 2) continue;
+          mapCacheCtx.fillStyle = `rgba(${cloud.r[i]}, ${cloud.g[i]}, ${cloud.b[i]}, 0.72)`;
+          mapCacheCtx.fillRect(p.x, p.y, pointSize, pointSize);
+          state.visibleCloudCount += 1;
+        }
+      }
+
+      if (state.shots.length) {
+        mapCacheCtx.strokeStyle = "rgba(178, 170, 157, 0.96)";
+        mapCacheCtx.lineWidth = 2;
+        mapCacheCtx.beginPath();
+        let hasRoute = false;
+        state.shots.forEach((shot) => {
+          if (!isShotVisibleIn2d(shot, zRange)) {
+            hasRoute = false;
+            return;
+          }
+          const p = worldToScreen2d(shot.x, shot.y);
+          if (!hasRoute) {
+            mapCacheCtx.moveTo(p.x, p.y);
+            hasRoute = true;
+          } else {
+            mapCacheCtx.lineTo(p.x, p.y);
+          }
+        });
+        if (hasRoute) {
+          mapCacheCtx.stroke();
+        }
+
+        state.shots.forEach((shot, index) => {
+          if (!isShotVisibleIn2d(shot, zRange)) {
+            return;
+          }
+          const p = worldToScreen2d(shot.x, shot.y);
+          mapCacheCtx.beginPath();
+          mapCacheCtx.arc(p.x, p.y, index === state.selectedIndex ? 5.4 : 4.1, 0, Math.PI * 2);
+          mapCacheCtx.fillStyle = index === state.selectedIndex ? "rgba(217,109,63,0.96)" : "rgba(15,108,102,0.92)";
+          mapCacheCtx.fill();
+          mapCacheCtx.lineWidth = 1.2;
+          mapCacheCtx.strokeStyle = "rgba(255,255,255,0.95)";
+          mapCacheCtx.stroke();
+        });
+      }
+
+      mapCacheCtx.fillStyle = "rgba(31,42,48,0.72)";
+      mapCacheCtx.fillRect(14, 14, 176, 48);
+      mapCacheCtx.fillStyle = "#fff";
+      mapCacheCtx.font = "13px Segoe UI";
+      mapCacheCtx.fillText("2D: kolečko zoom, tah posun", 24, 34);
+      mapCacheCtx.fillText("klik na bod = panorama", 24, 52);
+      state.mapSceneDirty = false;
+    }
+
+    function render2d() {
+      const width = state.layout.cssMapWidth;
+      const height = state.layout.cssMapHeight;
+      if (state.mapSceneDirty) {
+        render2dStaticScene();
+      }
+      mapCtx.clearRect(0, 0, width, height);
+      mapCtx.drawImage(mapCacheCanvas, 0, 0, mapCacheCanvas.width, mapCacheCanvas.height, 0, 0, width, height);
+      const zRange = visibleZRange();
+      if (state.selectedIndex >= 0 && isShotVisibleIn2d(state.shots[state.selectedIndex], zRange)) {
+        drawViewDirectionMarker(state.shots[state.selectedIndex]);
+      }
+      updateStats();
+    }
+
+    function renderActiveScene() {
+      if (state.viewMode === "2d") render2d();
+    }
+
+    function toggleTwoDOnlyControls(show) {
+      document.querySelectorAll(".two-d-only").forEach((element) => {
+        element.classList.toggle("hidden-by-mode", !show);
+      });
+    }
+
+    function setViewMode(mode) {
+      state.viewMode = mode;
+      document.getElementById("mode2dBtn").classList.toggle("active", mode === "2d");
+      document.getElementById("mode3dBtn").classList.toggle("active", mode === "3d");
+      mapCanvas.classList.toggle("hidden", mode !== "2d");
+      potreeFrame.classList.toggle("hidden", mode !== "3d");
+      toggleTwoDOnlyControls(mode === "2d");
+      if (mode === "2d") render2d();
+      else postShotSelectionToPotree();
+    }
+
+    function findShotAt2d(x, y) {
+      const tolerance = 10;
+      const zRange = visibleZRange();
+      for (let i = state.shots.length - 1; i >= 0; i -= 1) {
+        if (!isShotVisibleIn2d(state.shots[i], zRange)) continue;
+        const p = worldToScreen2d(state.shots[i].x, state.shots[i].y);
+        const dx = p.x - x;
+        const dy = p.y - y;
+        if ((dx * dx + dy * dy) <= tolerance * tolerance) return i;
+      }
+      return -1;
+    }
+
+    function updateMeta(shot) {
+      viewerTitleEl.textContent = `360 Panoramata ${state.selectedIndex + 1} / ${state.shots.length}`;
+      metaFileEl.textContent = resolvePanoramaSrc(shot);
+      metaTimeEl.textContent = `${shot.time}`;
+      metaPositionEl.textContent = `${formatNumber(shot.x)}, ${formatNumber(shot.y)}, ${formatNumber(shot.z)}`;
+      metaOrientationEl.textContent = `roll ${formatNumber(shot.roll)} | pitch ${formatNumber(shot.pitch)} | yaw ${formatNumber(shot.yaw)} | view ${formatNumber(currentViewYawDegrees(), 1)}°`;
+      metaTypeEl.textContent = shot.image_type || "-";
+    }
+
+    function postShotSelectionToPotree() {
+      if (state.selectedIndex < 0) return;
+      if (!potreeFrame.contentWindow) return;
+      potreeFrame.contentWindow.postMessage({ type: "select-shot", index: state.selectedIndex, moveCamera: true }, "*");
+    }
+
+    function selectShot(index, source = "local") {
+      if (index < 0 || index >= state.shots.length) return;
+      state.selectedIndex = index;
+      markMapSceneDirty();
+      state.view360.yaw = yawDegreesToFraction(0);
+      state.view360.pitch = 0.5;
+      state.view360.zoom = 1.35;
+      const shot = state.shots[index];
+      updateMeta(shot);
+      setViewerStatus("");
+      loadPanorama(resolvePanoramaSrc(shot));
+      if (source !== "potree") postShotSelectionToPotree();
+      render2d();
+    }
+
+    function drawViewerPlaceholder() {
+      if (state.panoramaSyncTimer) {
+        clearInterval(state.panoramaSyncTimer);
+        state.panoramaSyncTimer = null;
+      }
+      pannellumViewerEl.classList.add("hidden");
+      viewerCanvas.classList.remove("hidden");
+      viewerCtx.clearRect(0, 0, state.layout.cssViewerWidth, state.layout.cssViewerHeight);
+      viewerCtx.fillStyle = "#162026";
+      viewerCtx.fillRect(0, 0, state.layout.cssViewerWidth, state.layout.cssViewerHeight);
+      viewerCtx.fillStyle = "#dde5e8";
+      viewerCtx.textAlign = "center";
+      viewerCtx.font = "28px Segoe UI";
+      viewerCtx.fillText("Vyber snímek z trasy", state.layout.cssViewerWidth / 2, state.layout.cssViewerHeight / 2);
+      viewerCtx.font = "18px Segoe UI";
+      viewerCtx.fillStyle = "#94a8b1";
+      viewerCtx.fillText("a můžeš se rozhlížet jako v 360 panoramatu", state.layout.cssViewerWidth / 2, state.layout.cssViewerHeight / 2 + 36);
+    }
+
+    function syncFromPanoramaViewer() {
+      if (!state.panoramaViewer || state.selectedIndex < 0) return;
+      try {
+        const nextYawDeg = state.panoramaViewer.getYaw();
+        const nextPitchDeg = state.panoramaViewer.getPitch();
+        const nextYaw = yawDegreesToFraction(nextYawDeg);
+        const nextPitch = pitchDegreesToFraction(nextPitchDeg);
+        const nextZoom = hfovToZoom(state.panoramaViewer.getHfov());
+        let changed = false;
+        if (Math.abs(nextYaw - state.view360.yaw) > 1e-4) {
+          state.view360.yaw = nextYaw;
+          changed = true;
+        }
+        if (Math.abs(nextPitch - state.view360.pitch) > 1e-4) {
+          state.view360.pitch = nextPitch;
+          changed = true;
+        }
+        if (Math.abs(nextZoom - state.view360.zoom) > 1e-4) {
+          state.view360.zoom = nextZoom;
+        }
+        if (changed) {
+          const now = performance.now();
+          const yawDelta = Math.abs(nextYawDeg - state.lastOverlayYawDeg);
+          const pitchDelta = Math.abs(nextPitchDeg - state.lastOverlayPitchDeg);
+          if (state.viewMode === "2d" && (now - state.lastOverlaySyncAt > 140) && (yawDelta > 1.5 || pitchDelta > 1.0)) {
+            render2d();
+            state.lastOverlaySyncAt = now;
+            state.lastOverlayYawDeg = nextYawDeg;
+            state.lastOverlayPitchDeg = nextPitchDeg;
+          }
+        }
+      } catch (error) {
+        console.warn("Panorama sync failed:", error);
+      }
+    }
+
+    function applyViewToPanoramaViewer() {
+      if (!state.panoramaViewer) return;
+      try {
+        state.panoramaViewer.setYaw(fractionToYawDegrees(state.view360.yaw), 0);
+        state.panoramaViewer.setPitch(fractionToPitchDegrees(state.view360.pitch), 0);
+        state.panoramaViewer.setHfov(zoomToHfov(state.view360.zoom), 0);
+        syncFromPanoramaViewer();
+      } catch (error) {
+        console.warn("Panorama apply failed:", error);
+      }
+    }
+
+    function loadPanorama(src) {
+      if (window.pannellum && typeof window.pannellum.viewer === "function") {
+        try {
+          if (state.panoramaSyncTimer) {
+            clearInterval(state.panoramaSyncTimer);
+            state.panoramaSyncTimer = null;
+          }
+          if (state.panoramaViewer && typeof state.panoramaViewer.destroy === "function") {
+            state.panoramaViewer.destroy();
+          }
+          pannellumViewerEl.classList.remove("hidden");
+          viewerCanvas.classList.add("hidden");
+          pannellumViewerEl.innerHTML = "";
+          state.panoramaViewer = window.pannellum.viewer("pannellumViewer", {
+            type: "equirectangular",
+            panorama: src,
+            autoLoad: true,
+            showControls: true,
+            showZoomCtrl: true,
+            showFullscreenCtrl: false,
+            mouseZoom: true,
+            draggable: true,
+            compass: false,
+            yaw: fractionToYawDegrees(state.view360.yaw),
+            pitch: fractionToPitchDegrees(state.view360.pitch),
+            hfov: zoomToHfov(state.view360.zoom)
+          });
+          state.panoramaViewer.on("load", () => {
+            setViewerStatus("");
+            syncFromPanoramaViewer();
+            state.lastOverlaySyncAt = performance.now();
+            state.lastOverlayYawDeg = state.panoramaViewer.getYaw();
+            state.lastOverlayPitchDeg = state.panoramaViewer.getPitch();
+            state.panoramaSyncTimer = setInterval(syncFromPanoramaViewer, 160);
+            renderPanorama();
+          });
+          state.panoramaViewer.on("error", () => {
+            state.panoramaViewer = null;
+            drawViewerPlaceholder();
+            setViewerStatus(`Nepodařilo se načíst obrázek: ${src}`);
+          });
+          return;
+        } catch (error) {
+          console.error(error);
+          state.panoramaViewer = null;
+        }
+      }
+
+      const image = new Image();
+      image.onload = () => { state.image = image; renderPanorama(); };
+      image.onerror = () => {
+        state.image = null;
+        drawViewerPlaceholder();
+        setViewerStatus(`Nepodařilo se načíst obrázek: ${src}`);
+      };
+      image.src = src;
+    }
+
+    function renderPanorama() {
+      if (state.panoramaViewer) {
+        try {
+          if (typeof state.panoramaViewer.resize === "function") {
+            state.panoramaViewer.resize();
+          }
+          if (state.viewMode === "2d") {
+            render2d();
+          }
+          return;
+        } catch (error) {
+          console.error(error);
+        }
+      }
+      if (!state.image) {
+        drawViewerPlaceholder();
+        return;
+      }
+
+      const image = state.image;
+      const width = state.layout.cssViewerWidth;
+      const height = state.layout.cssViewerHeight;
+      const aspect = width / height;
+      const viewWidth = Math.min(image.width, image.width / (state.view360.zoom * 2));
+      const viewHeight = Math.min(image.height, viewWidth / aspect);
+      const centerX = (((state.view360.yaw % 1) + 1) % 1) * image.width;
+      const centerY = Math.min(Math.max(state.view360.pitch, 0.03), 0.97) * image.height;
+      let sx = centerX - viewWidth / 2;
+      let sy = centerY - viewHeight / 2;
+      sy = Math.max(0, Math.min(image.height - viewHeight, sy));
+
+      viewerCtx.clearRect(0, 0, width, height);
+      viewerCtx.fillStyle = "#12181c";
+      viewerCtx.fillRect(0, 0, width, height);
+
+      if (sx < 0) {
+        const leftWidth = -sx;
+        const leftTarget = (leftWidth / viewWidth) * width;
+        viewerCtx.drawImage(image, image.width - leftWidth, sy, leftWidth, viewHeight, 0, 0, leftTarget, height);
+        viewerCtx.drawImage(image, 0, sy, viewWidth - leftWidth, viewHeight, leftTarget, 0, width - leftTarget, height);
+      } else if (sx + viewWidth > image.width) {
+        const rightWidth = image.width - sx;
+        const rightTarget = (rightWidth / viewWidth) * width;
+        viewerCtx.drawImage(image, sx, sy, rightWidth, viewHeight, 0, 0, rightTarget, height);
+        viewerCtx.drawImage(image, 0, sy, viewWidth - rightWidth, viewHeight, rightTarget, 0, width - rightTarget, height);
+      } else {
+        viewerCtx.drawImage(image, sx, sy, viewWidth, viewHeight, 0, 0, width, height);
+      }
+
+      viewerCtx.strokeStyle = "rgba(255,255,255,0.28)";
+      viewerCtx.beginPath();
+      viewerCtx.moveTo(width / 2, 0);
+      viewerCtx.lineTo(width / 2, height);
+      viewerCtx.moveTo(0, height / 2);
+      viewerCtx.lineTo(width, height / 2);
+      viewerCtx.stroke();
+    }
+
+    function resizeCanvas(canvas, context, keyWidth, keyHeight) {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(800, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(420, Math.floor(rect.height * dpr));
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.scale(dpr, dpr);
+      state.layout[keyWidth] = rect.width;
+      state.layout[keyHeight] = rect.height;
+    }
+
+    function setupCanvases() {
+      resizeCanvas(mapCanvas, mapCtx, "cssMapWidth", "cssMapHeight");
+      resizeCanvas(viewerCanvas, viewerCtx, "cssViewerWidth", "cssViewerHeight");
+      markMapSceneDirty();
+      fitMapToData();
+      render2d();
+      renderPanorama();
+    }
+
+    function getPlyTypeInfo(type) {
+      const map = {
+        char: { size: 1, getter: "getInt8" }, int8: { size: 1, getter: "getInt8" },
+        uchar: { size: 1, getter: "getUint8" }, uint8: { size: 1, getter: "getUint8" },
+        short: { size: 2, getter: "getInt16" }, int16: { size: 2, getter: "getInt16" },
+        ushort: { size: 2, getter: "getUint16" }, uint16: { size: 2, getter: "getUint16" },
+        int: { size: 4, getter: "getInt32" }, int32: { size: 4, getter: "getInt32" },
+        uint: { size: 4, getter: "getUint32" }, uint32: { size: 4, getter: "getUint32" },
+        float: { size: 4, getter: "getFloat32" }, float32: { size: 4, getter: "getFloat32" },
+        double: { size: 8, getter: "getFloat64" }, float64: { size: 8, getter: "getFloat64" }
+      };
+      return map[type.toLowerCase()];
+    }
+
+    function parsePlyHeader(text) {
+      const lines = text.split(/\r?\n/);
+      const header = { format: "", vertexCount: 0, properties: [] };
+      let inVertex = false;
+      for (const line of lines) {
+        if (line.startsWith("format ")) header.format = line.split(/\s+/)[1];
+        else if (line.startsWith("element ")) {
+          const parts = line.split(/\s+/);
+          inVertex = parts[1] === "vertex";
+          if (inVertex) header.vertexCount = Number(parts[2]);
+        } else if (inVertex && line.startsWith("property ")) {
+          const parts = line.split(/\s+/);
+          if (parts[1] !== "list") header.properties.push({ type: parts[1], name: parts[2] });
+        }
+      }
+      return header;
+    }
+
+    function normalizeCloud(cloud) {
+      return {
+        count: cloud.count,
+        drawCount: cloud.count,
+        bounds: cloud.bounds,
+        x: cloud.x,
+        y: cloud.y,
+        z: cloud.z,
+        r: cloud.r,
+        g: cloud.g,
+        b: cloud.b
+      };
+    }
+
+    function parseBinaryPly(buffer, headerText, dataOffset) {
+      const header = parsePlyHeader(headerText);
+      const x = new Float32Array(header.vertexCount);
+      const y = new Float32Array(header.vertexCount);
+      const z = new Float32Array(header.vertexCount);
+      const r = new Uint8Array(header.vertexCount);
+      const g = new Uint8Array(header.vertexCount);
+      const b = new Uint8Array(header.vertexCount);
+      const view = new DataView(buffer, dataOffset);
+      const props = header.properties.map((property) => ({ ...property, info: getPlyTypeInfo(property.type) }));
+      let offset = 0;
+      const bounds = emptyBounds();
+      for (let i = 0; i < header.vertexCount; i += 1) {
+        let px = 0, py = 0, pz = 0, pr = 40, pg = 70, pb = 85;
+        for (const prop of props) {
+          const value = view[prop.info.getter](offset, true);
+          offset += prop.info.size;
+          if (prop.name === "x") px = value;
+          else if (prop.name === "y") py = value;
+          else if (prop.name === "z") pz = value;
+          else if (prop.name === "red") pr = value;
+          else if (prop.name === "green") pg = value;
+          else if (prop.name === "blue") pb = value;
+        }
+        x[i] = px; y[i] = py; z[i] = pz; r[i] = pr; g[i] = pg; b[i] = pb;
+        extendBounds(bounds, px, py, pz);
+      }
+      return normalizeCloud({ count: header.vertexCount, x, y, z, r, g, b, bounds });
+    }
+
+    function parsePlyBuffer(buffer) {
+      const bytes = new Uint8Array(buffer);
+      const marker = new TextEncoder().encode("end_header");
+      let headerEnd = -1;
+      for (let i = 0; i <= bytes.length - marker.length; i += 1) {
+        let match = true;
+        for (let j = 0; j < marker.length; j += 1) {
+          if (bytes[i + j] !== marker[j]) {
+            match = false;
+            break;
+          }
+        }
+        if (match) {
+          headerEnd = i;
+          break;
+        }
+      }
+      if (headerEnd === -1) throw new Error("PLY header nebyl nalezen.");
+      let dataOffset = headerEnd + marker.length;
+      while (dataOffset < bytes.length && (bytes[dataOffset] === 10 || bytes[dataOffset] === 13)) {
+        dataOffset += 1;
+      }
+      const headerText = new TextDecoder().decode(bytes.slice(0, dataOffset));
+      const header = parsePlyHeader(headerText);
+      if (header.format !== "binary_little_endian") {
+        throw new Error(`Nepodporovaný PLY formát: ${header.format}`);
+      }
+      return parseBinaryPly(buffer, headerText, dataOffset);
+    }
+
+    function applyCloudToState(cloud, label) {
+      state.pointCloud = cloud;
+      setZSliderBounds(cloud.bounds.minZ, cloud.bounds.maxZ);
+      setSceneStatus(`Načteno 2D mračno ${label}: ${cloud.count} bodů, vykresluje se ${cloud.drawCount}.`);
+      markMapSceneDirty();
+      fitMapToData();
+      render2d();
+    }
+
+    async function tryAutoLoadCloud() {
+      try {
+        setSceneStatus("Načítám cloud.ply...");
+        const response = await fetch("./cloud.ply");
+        if (!response.ok) throw new Error(`cloud.ply nenalezen (${response.status})`);
+        const buffer = await response.arrayBuffer();
+        applyCloudToState(parsePlyBuffer(buffer), "cloud.ply");
+      } catch (error) {
+        setSceneStatus(`Automatické načtení 2D mračna nevyšlo. ${error.message}`);
+      }
+    }
+
+    const mapPointer = { dragging: false, moved: false, startX: 0, startY: 0, offsetX: 0, offsetY: 0 };
+    mapCanvas.addEventListener("mousedown", (event) => {
+      mapPointer.dragging = true;
+      mapPointer.moved = false;
+      mapPointer.startX = event.clientX;
+      mapPointer.startY = event.clientY;
+      mapPointer.offsetX = state.mapView.offsetX;
+      mapPointer.offsetY = state.mapView.offsetY;
+      mapCanvas.classList.add("dragging");
+    });
+    window.addEventListener("mousemove", (event) => {
+      if (!mapPointer.dragging) return;
+      const dx = event.clientX - mapPointer.startX;
+      const dy = event.clientY - mapPointer.startY;
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) mapPointer.moved = true;
+      state.mapView.offsetX = mapPointer.offsetX + dx;
+      state.mapView.offsetY = mapPointer.offsetY + dy;
+      markMapSceneDirty();
+      if (state.viewMode === "2d") render2d();
+    });
+    window.addEventListener("mouseup", (event) => {
+      if (mapPointer.dragging && !mapPointer.moved) {
+        const rect = mapCanvas.getBoundingClientRect();
+        const index = findShotAt2d(event.clientX - rect.left, event.clientY - rect.top);
+        if (index >= 0) selectShot(index);
+      }
+      mapPointer.dragging = false;
+      mapCanvas.classList.remove("dragging");
+    });
+    mapCanvas.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      const rect = mapCanvas.getBoundingClientRect();
+      const sx = event.clientX - rect.left;
+      const sy = event.clientY - rect.top;
+      const world = screenToWorld2d(sx, sy);
+      const factor = event.deltaY < 0 ? 1.12 : 0.89;
+      state.mapView.scale = Math.max(0.01, state.mapView.scale * factor);
+      state.mapView.offsetX = sx - world.x * state.mapView.scale;
+      state.mapView.offsetY = sy + world.y * state.mapView.scale;
+      markMapSceneDirty();
+      if (state.viewMode === "2d") render2d();
+    }, { passive: false });
+
+    const panoPointer = { dragging: false, startX: 0, startY: 0, yaw: 0, pitch: 0 };
+    viewerCanvas.addEventListener("mousedown", (event) => {
+      panoPointer.dragging = true;
+      panoPointer.startX = event.clientX;
+      panoPointer.startY = event.clientY;
+      panoPointer.yaw = state.view360.yaw;
+      panoPointer.pitch = state.view360.pitch;
+      viewerCanvas.classList.add("dragging");
+    });
+    window.addEventListener("mousemove", (event) => {
+      if (!panoPointer.dragging || !state.image) return;
+      const dx = event.clientX - panoPointer.startX;
+      const dy = event.clientY - panoPointer.startY;
+      state.view360.yaw = panoPointer.yaw - dx / state.layout.cssViewerWidth;
+      state.view360.pitch = Math.min(Math.max(panoPointer.pitch + dy / state.layout.cssViewerHeight, 0.03), 0.97);
+      renderPanorama();
+    });
+    window.addEventListener("mouseup", () => {
+      panoPointer.dragging = false;
+      viewerCanvas.classList.remove("dragging");
+    });
+    viewerCanvas.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      const nextZoom = Math.min(4, Math.max(0.45, state.view360.zoom - event.deltaY * 0.0024));
+      state.view360.zoom = nextZoom;
+      renderPanorama();
+    }, { passive: false });
+
+    pointSizeRange.addEventListener("input", () => {
+      markMapSceneDirty();
+      renderActiveScene();
+    });
+    zMinRange.addEventListener("input", () => {
+      clampZRange("min");
+      markMapSceneDirty();
+      renderActiveScene();
+    });
+    zMaxRange.addEventListener("input", () => {
+      clampZRange("max");
+      markMapSceneDirty();
+      renderActiveScene();
+    });
+    document.getElementById("mode2dBtn").addEventListener("click", () => setViewMode("2d"));
+    document.getElementById("mode3dBtn").addEventListener("click", () => setViewMode("3d"));
+    document.getElementById("fitBtn").addEventListener("click", () => {
+      fitMapToData();
+      renderActiveScene();
+      postShotSelectionToPotree();
+    });
+    document.getElementById("firstBtn").addEventListener("click", () => selectShot(0));
+    document.getElementById("lastBtn").addEventListener("click", () => selectShot(state.shots.length - 1));
+    document.getElementById("resetZBtn").addEventListener("click", () => {
+      if (!state.pointCloud) return;
+      setZSliderBounds(state.pointCloud.bounds.minZ, state.pointCloud.bounds.maxZ);
+      markMapSceneDirty();
+      render2d();
+    });
+    document.getElementById("prevBtn").addEventListener("click", () => selectShot(state.selectedIndex - 1));
+    document.getElementById("nextBtn").addEventListener("click", () => selectShot(state.selectedIndex + 1));
+    document.getElementById("resetViewBtn").addEventListener("click", () => {
+      state.view360.zoom = 1.35;
+      state.view360.yaw = yawDegreesToFraction(0);
+      state.view360.pitch = 0.5;
+      if (state.panoramaViewer) applyViewToPanoramaViewer();
+      else renderPanorama();
+    });
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowLeft") selectShot(state.selectedIndex - 1);
+      else if (event.key === "ArrowRight") selectShot(state.selectedIndex + 1);
+      else if (event.key === "ArrowUp") {
+        state.view360.pitch = Math.max(0.03, state.view360.pitch - 0.03);
+        if (state.panoramaViewer) applyViewToPanoramaViewer(); else renderPanorama();
+      }
+      else if (event.key === "ArrowDown") {
+        state.view360.pitch = Math.min(0.97, state.view360.pitch + 0.03);
+        if (state.panoramaViewer) applyViewToPanoramaViewer(); else renderPanorama();
+      }
+    });
+    window.addEventListener("message", (event) => {
+      const message = event.data;
+      if (!message || typeof message !== "object") return;
+      if (message.type === "potree-shot-selected" && Number.isInteger(message.index)) {
+        selectShot(message.index, "potree");
+      }
+    });
+    potreeFrame.addEventListener("load", postShotSelectionToPotree);
+    window.addEventListener("resize", setupCanvases);
+
+    drawViewerPlaceholder();
+    toggleTwoDOnlyControls(true);
+    setupCanvases();
+    if (state.shots.length) selectShot(0);
+    tryAutoLoadCloud();
+  </script>
+</body>
+</html>
