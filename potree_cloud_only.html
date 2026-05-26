@@ -125,7 +125,7 @@
       viewer.toggleSidebar();
     });
 
-    Potree.loadPointCloud("./potree_scene/pointcloud_v17/cloud.js", "MLS", (e) => {
+    Potree.loadPointCloud("./potree_scene_cloud_only/pointcloud_v17/cloud.js", "MLS", (e) => {
       const pointcloud = e.pointcloud;
       viewer.scene.addPointCloud(pointcloud);
 
