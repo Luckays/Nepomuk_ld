@@ -4,11 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Nepomuk | Profily mračna</title>
-  <link rel="stylesheet" type="text/css" href="./potree_scene/potree/build/potree/potree.css">
-  <link rel="stylesheet" type="text/css" href="./potree_scene/potree/libs/jquery-ui/jquery-ui.min.css">
-  <link rel="stylesheet" type="text/css" href="./potree_scene/potree/libs/openlayers3/ol.css">
-  <link rel="stylesheet" type="text/css" href="./potree_scene/potree/libs/spectrum/spectrum.css">
-  <link rel="stylesheet" type="text/css" href="./potree_scene/potree/libs/jstree/themes/mixed/style.css">
   <style>
     :root {
       --bg: #efe6d7;
@@ -20,7 +15,7 @@
       --accent-soft: #deeee8;
       --danger: #a24632;
       --warning: #d97941;
-      --shadow: rgba(72, 54, 27, 0.1);
+      --shadow: rgba(72, 54, 27, 0.10);
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; min-height: 100%; }
@@ -52,7 +47,8 @@
       grid-template-rows: auto auto auto 1fr auto auto;
     }
     .right-panel {
-      position: relative;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
       min-height: 0;
     }
     .header { padding: 22px 24px 12px; }
@@ -197,19 +193,19 @@
       border: 0;
     }
     #pointSizeRange { width: 140px; }
-    .canvas-wrap {
+    .canvas-wrap, .detail-wrap {
       padding: 0 20px 20px;
       min-height: 0;
     }
-    #mapCanvas {
+    #mapCanvas, #detailCanvas {
       width: 100%;
       height: min(62vh, 760px);
       display: block;
       border-radius: 20px;
       border: 1px solid var(--line);
       background: linear-gradient(180deg, rgba(255,255,255,0.78), rgba(238,231,221,0.94));
-      cursor: grab;
     }
+    #mapCanvas { cursor: grab; }
     #mapCanvas.drawing { cursor: crosshair; }
     #mapCanvas.dragging { cursor: grabbing; }
     .profile-panel {
@@ -253,24 +249,20 @@
       padding: 7px 12px;
       font-size: 0.82rem;
     }
-    .status {
+    .status, .detail-footer {
       padding: 0 24px 18px;
       color: var(--muted);
       font-size: 0.9rem;
       min-height: 1.25em;
     }
     .status.error { color: var(--danger); }
-    .right-panel .panel-head {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      right: 16px;
-      z-index: 1200;
+    .panel-head {
       display: flex;
       gap: 16px;
       align-items: center;
       justify-content: space-between;
-      padding: 12px 14px;
+      padding: 16px;
+      margin: 16px 16px 0;
       border-radius: 16px;
       background: rgba(255, 251, 245, 0.92);
       border: 1px solid rgba(216, 205, 189, 0.95);
@@ -283,20 +275,6 @@
       font-size: 0.86rem;
       margin-top: 2px;
     }
-    .potree-shell {
-      position: absolute;
-      inset: 0;
-    }
-    #potree_render_area {
-      position: absolute;
-      inset: 0;
-      background-image: linear-gradient(180deg, #f6f0e6 0%, #ddd1c1 100%);
-    }
-    #potree_sidebar_container {
-      position: absolute;
-      inset: 0 auto 0 0;
-      z-index: 500;
-    }
     @media (max-width: 1280px) {
       .app { grid-template-columns: 1fr; }
       .right-panel { min-height: 62vh; }
@@ -304,24 +282,11 @@
   </style>
 </head>
 <body>
-  <script src="./potree_scene/potree/libs/jquery/jquery-3.1.1.min.js"></script>
-  <script src="./potree_scene/potree/libs/spectrum/spectrum.js"></script>
-  <script src="./potree_scene/potree/libs/jquery-ui/jquery-ui.min.js"></script>
-  <script src="./potree_scene/potree/libs/other/BinaryHeap.js"></script>
-  <script src="./potree_scene/potree/libs/tween/tween.min.js"></script>
-  <script src="./potree_scene/potree/libs/d3/d3.js"></script>
-  <script src="./potree_scene/potree/libs/proj4/proj4.js"></script>
-  <script src="./potree_scene/potree/libs/openlayers3/ol.js"></script>
-  <script src="./potree_scene/potree/libs/i18next/i18next.js"></script>
-  <script src="./potree_scene/potree/libs/jstree/jstree.js"></script>
-  <script src="./potree_scene/potree/build/potree/potree.js"></script>
-  <script src="./potree_scene/potree/libs/plasio/js/laslaz.js"></script>
-
   <main class="app">
     <section class="panel left-panel">
       <div class="header">
         <h1>Nepomuk | Profily mračna</h1>
-        <div class="subtle">Vlevo je 2D pohled nového mračna s výškovým řezem a kreslením profilů. Vpravo se po kliknutí na profil otevře stejná oblast v Potree s nastaveným bufferem.</div>
+        <div class="subtle">Vlevo je 2D pohled nového mračna s výškovým řezem a kreslením profilů. Vpravo se zobrazí detail vybraného profilu v 2D se stejným bufferem.</div>
       </div>
 
       <div class="toolbar">
@@ -381,30 +346,33 @@
     <section class="panel right-panel">
       <div class="panel-head">
         <div class="panel-head-copy">
-          <h2>Potree | Detail profilu</h2>
-          <span id="potreeInfo">Vyber profil vlevo nebo nakresli nový.</span>
+          <h2>2D | Detail profilu</h2>
+          <span id="detailInfo">Vyber profil vlevo nebo nakresli nový.</span>
         </div>
         <div style="display:flex;gap:10px;align-items:center;">
-          <button id="focusSelectedBtn" class="secondary" type="button">Zaměřit vybraný</button>
+          <button id="focusSelectedBtn" class="secondary" type="button">Zobrazit detail</button>
           <button id="backToViewerBtn" type="button">Zpět do vieweru</button>
         </div>
       </div>
-      <div class="potree-shell">
-        <div id="potree_render_area"></div>
-        <div id="potree_sidebar_container"></div>
+      <div class="detail-wrap">
+        <canvas id="detailCanvas"></canvas>
       </div>
+      <div id="detailStatus" class="detail-footer">Pravý panel ukazuje vybraný profil s bufferem v 2D detailu.</div>
     </section>
   </main>
 
   <script>
     const STORAGE_KEY = "nepomuk_cloud_profiles_v1";
     const REMOTE_PROFILES_PATH = "./profiles.json";
-    const pointCloudPath = "./potree_scene_cloud_only/pointcloud_v17/cloud.js";
 
     const canvas = document.getElementById("mapCanvas");
     const ctx = canvas.getContext("2d");
+    const detailCanvas = document.getElementById("detailCanvas");
+    const detailCtx = detailCanvas.getContext("2d");
+
     const leftStatus = document.getElementById("leftStatus");
-    const potreeInfo = document.getElementById("potreeInfo");
+    const detailInfo = document.getElementById("detailInfo");
+    const detailStatus = document.getElementById("detailStatus");
     const drawProfileBtn = document.getElementById("drawProfileBtn");
     const deleteProfileBtn = document.getElementById("deleteProfileBtn");
     const fit2dBtn = document.getElementById("fit2dBtn");
@@ -434,10 +402,12 @@
       pointSize: 1,
       zMin: 0,
       zMax: 1,
-      bboxHelper: null,
-      clipVolume: null,
-      pointCloud: null,
       view: {
+        scale: 1,
+        offsetX: 0,
+        offsetY: 0,
+      },
+      detailView: {
         scale: 1,
         offsetX: 0,
         offsetY: 0,
@@ -527,7 +497,7 @@
         saveProfilesToLocal();
         renderProfileList();
         draw2D();
-        updatePotreeForSelection();
+        updateDetailSelection();
         setStatus("Profily byly načteny z profiles.json.");
       } catch (error) {
         setStatus(`Načtení profiles.json selhalo: ${error.message}`, true);
@@ -555,7 +525,7 @@
       state.selectedProfileId = profileId;
       renderProfileList();
       draw2D();
-      updatePotreeForSelection();
+      updateDetailSelection();
     }
 
     function getSelectedProfile() {
@@ -574,26 +544,6 @@
       };
     }
 
-    function profileVolume(profile) {
-      const buffer = Math.max(0.1, Number(profile.buffer ?? 2));
-      const dx = profile.x2 - profile.x1;
-      const dy = profile.y2 - profile.y1;
-      const length = Math.max(Math.hypot(dx, dy), 0.1);
-      const centerX = (profile.x1 + profile.x2) / 2;
-      const centerY = (profile.y1 + profile.y2) / 2;
-      const centerZ = (state.zMin + state.zMax) / 2;
-      const height = Math.max(state.zMax - state.zMin, 0.1);
-      return {
-        centerX,
-        centerY,
-        centerZ,
-        angle: Math.atan2(dy, dx),
-        scaleX: length + buffer * 2,
-        scaleY: buffer * 2,
-        scaleZ: height,
-      };
-    }
-
     function fitViewToBounds(bounds) {
       const width = canvas.clientWidth || 800;
       const height = canvas.clientHeight || 600;
@@ -609,10 +559,31 @@
       draw2D();
     }
 
+    function fitDetailToBounds(bounds) {
+      const width = detailCanvas.clientWidth || 800;
+      const height = detailCanvas.clientHeight || 600;
+      const pad = 36;
+      const spanX = Math.max(bounds.maxX - bounds.minX, 1e-6);
+      const spanY = Math.max(bounds.maxY - bounds.minY, 1e-6);
+      const scale = Math.min((width - pad * 2) / spanX, (height - pad * 2) / spanY);
+      const contentWidth = spanX * scale;
+      const contentHeight = spanY * scale;
+      state.detailView.scale = scale;
+      state.detailView.offsetX = pad + (width - pad * 2 - contentWidth) / 2 - bounds.minX * scale;
+      state.detailView.offsetY = pad + (height - pad * 2 - contentHeight) / 2 + bounds.maxY * scale;
+    }
+
     function worldToScreen(x, y) {
       return {
         x: x * state.view.scale + state.view.offsetX,
         y: -y * state.view.scale + state.view.offsetY,
+      };
+    }
+
+    function worldToDetailScreen(x, y) {
+      return {
+        x: x * state.detailView.scale + state.detailView.offsetX,
+        y: -y * state.detailView.scale + state.detailView.offsetY,
       };
     }
 
@@ -630,6 +601,13 @@
       canvas.width = Math.round(width * ratio);
       canvas.height = Math.round(height * ratio);
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+      const detailWidth = detailCanvas.clientWidth;
+      const detailHeight = detailCanvas.clientHeight;
+      detailCanvas.width = Math.round(detailWidth * ratio);
+      detailCanvas.height = Math.round(detailHeight * ratio);
+      detailCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
       if (state.cloud) {
         fitViewToBounds({
           minX: state.cloud.meta.bounds.min_x,
@@ -637,6 +615,16 @@
           minY: state.cloud.meta.bounds.min_y,
           maxY: state.cloud.meta.bounds.max_y,
         });
+      } else {
+        drawDetailView();
+      }
+    }
+
+    function drawPointCloud(targetCtx, points, projector, size) {
+      for (const point of points) {
+        const screen = projector(point[0], point[1]);
+        targetCtx.fillStyle = `rgb(${point[3]}, ${point[4]}, ${point[5]})`;
+        targetCtx.fillRect(screen.x - size / 2, screen.y - size / 2, size, size);
       }
     }
 
@@ -648,15 +636,7 @@
       ctx.clearRect(0, 0, width, height);
 
       const filteredPoints = state.cloud.points.filter((point) => point[2] >= state.zMin && point[2] <= state.zMax);
-      for (const point of filteredPoints) {
-        const screen = worldToScreen(point[0], point[1]);
-        if (screen.x < -8 || screen.y < -8 || screen.x > width + 8 || screen.y > height + 8) {
-          continue;
-        }
-        ctx.fillStyle = `rgb(${point[3]}, ${point[4]}, ${point[5]})`;
-        const size = state.pointSize;
-        ctx.fillRect(screen.x - size / 2, screen.y - size / 2, size, size);
-      }
+      drawPointCloud(ctx, filteredPoints, worldToScreen, state.pointSize);
 
       const selected = getSelectedProfile();
       if (selected) {
@@ -691,18 +671,18 @@
         ctx.arc(b.x, b.y, 4.5, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = "rgba(255, 251, 245, 0.92)";
-        ctx.strokeStyle = "rgba(31, 42, 48, 0.12)";
-        ctx.lineWidth = 1;
+        ctx.font = "12px Segoe UI";
         const label = profile.label;
         const metrics = ctx.measureText(label);
         const labelW = metrics.width + 14;
+        ctx.fillStyle = "rgba(255, 251, 245, 0.92)";
+        ctx.strokeStyle = "rgba(31, 42, 48, 0.12)";
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.roundRect(midX - labelW / 2, midY - 12, labelW, 22, 11);
         ctx.fill();
         ctx.stroke();
         ctx.fillStyle = "#1f2a30";
-        ctx.font = "12px Segoe UI";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(label, midX, midY - 1);
@@ -718,6 +698,64 @@
         ctx.fill();
         ctx.restore();
       }
+    }
+
+    function drawDetailView() {
+      const width = detailCanvas.clientWidth;
+      const height = detailCanvas.clientHeight;
+      detailCtx.clearRect(0, 0, width, height);
+
+      const selected = getSelectedProfile();
+      if (!state.cloud || !selected) {
+        detailCtx.fillStyle = "#67717a";
+        detailCtx.font = "20px Segoe UI";
+        detailCtx.textAlign = "center";
+        detailCtx.textBaseline = "middle";
+        detailCtx.fillText("Vyber profil vlevo", width / 2, height / 2 - 10);
+        detailCtx.font = "14px Segoe UI";
+        detailCtx.fillText("Pravý panel pak zobrazí detail 2D oblasti s bufferem.", width / 2, height / 2 + 18);
+        detailStatus.textContent = "Pravý panel ukazuje vybraný profil s bufferem v 2D detailu.";
+        return;
+      }
+
+      const bounds = profileBounds(selected);
+      fitDetailToBounds(bounds);
+      const filteredPoints = state.cloud.points.filter((point) =>
+        point[2] >= state.zMin &&
+        point[2] <= state.zMax &&
+        point[0] >= bounds.minX &&
+        point[0] <= bounds.maxX &&
+        point[1] >= bounds.minY &&
+        point[1] <= bounds.maxY
+      );
+
+      drawPointCloud(detailCtx, filteredPoints, worldToDetailScreen, Math.max(1, state.pointSize + 0.2));
+
+      const a = worldToDetailScreen(selected.x1, selected.y1);
+      const b = worldToDetailScreen(selected.x2, selected.y2);
+      detailCtx.save();
+      detailCtx.strokeStyle = "#d97941";
+      detailCtx.lineWidth = 3;
+      detailCtx.beginPath();
+      detailCtx.moveTo(a.x, a.y);
+      detailCtx.lineTo(b.x, b.y);
+      detailCtx.stroke();
+
+      detailCtx.fillStyle = "#1f2a30";
+      detailCtx.beginPath();
+      detailCtx.arc(a.x, a.y, 5, 0, Math.PI * 2);
+      detailCtx.arc(b.x, b.y, 5, 0, Math.PI * 2);
+      detailCtx.fill();
+
+      const p1 = worldToDetailScreen(bounds.minX, bounds.maxY);
+      const p2 = worldToDetailScreen(bounds.maxX, bounds.minY);
+      detailCtx.strokeStyle = "rgba(217, 121, 65, 0.85)";
+      detailCtx.lineWidth = 1.5;
+      detailCtx.setLineDash([8, 6]);
+      detailCtx.strokeRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+      detailCtx.restore();
+
+      detailStatus.textContent = `Profil ${selected.label}: ${filteredPoints.length} bodů v detailu | buffer ${formatNumber(selected.buffer)} m | Z ${formatNumber(state.zMin)} až ${formatNumber(state.zMax)} m`;
     }
 
     function hitTestProfile(screenX, screenY) {
@@ -771,7 +809,7 @@
       zMaxLabel.textContent = formatNumber(state.zMax);
       updateZTrack();
       draw2D();
-      updatePotreeForSelection();
+      updateDetailSelection();
     }
 
     function resetZFilter() {
@@ -818,7 +856,7 @@
           saveProfilesToLocal();
           renderProfileList();
           draw2D();
-          updatePotreeForSelection();
+          updateDetailSelection();
           setStatus(`Profil ${profile.label} byl smazán.`);
         });
 
@@ -832,77 +870,16 @@
       }
     }
 
-    function updatePotreeForSelection() {
+    function updateDetailSelection() {
       const profile = getSelectedProfile();
       if (!profile) {
-        potreeInfo.textContent = "Vyber profil vlevo nebo nakresli nový.";
-        removeBboxHelper();
-        removeClipVolume();
+        detailInfo.textContent = "Vyber profil vlevo nebo nakresli nový.";
+        drawDetailView();
         return;
       }
 
-      potreeInfo.textContent = `Profil ${profile.label} | buffer ${formatNumber(profile.buffer)} m | délka ${formatNumber(profileLength(profile))} m`;
-      if (!state.pointCloud || !window.viewer) return;
-
-      const bounds = profileBounds(profile);
-      const centerX = (bounds.minX + bounds.maxX) / 2;
-      const centerY = (bounds.minY + bounds.maxY) / 2;
-      const centerZ = (bounds.minZ + bounds.maxZ) / 2;
-      const span = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY, bounds.maxZ - bounds.minZ, 1);
-      const target = new THREE.Vector3(centerX, centerY, centerZ);
-      const position = new THREE.Vector3(
-        centerX - span * 1.5,
-        centerY - span * 1.3,
-        centerZ + span * 0.95
-      );
-      viewer.scene.view.position.set(position.x, position.y, position.z);
-      viewer.scene.view.lookAt(target);
-      viewer.setMoveSpeed(Math.max(span, 1));
-      updateBboxHelper(bounds);
-      updateClipVolume(profile);
-      viewer.setClipTask(Potree.ClipTask.SHOW_INSIDE);
-      viewer.setClipMethod(Potree.ClipMethod.INSIDE_ANY);
-    }
-
-    function removeBboxHelper() {
-      if (state.bboxHelper && viewer?.scene?.scene) {
-        viewer.scene.scene.remove(state.bboxHelper);
-      }
-      state.bboxHelper = null;
-    }
-
-    function removeClipVolume() {
-      if (state.clipVolume && viewer?.scene?.removeVolume) {
-        viewer.scene.removeVolume(state.clipVolume);
-      }
-      state.clipVolume = null;
-    }
-
-    function updateBboxHelper(bounds) {
-      removeBboxHelper();
-      const box = new THREE.Box3(
-        new THREE.Vector3(bounds.minX, bounds.minY, bounds.minZ),
-        new THREE.Vector3(bounds.maxX, bounds.maxY, bounds.maxZ)
-      );
-      state.bboxHelper = new THREE.Box3Helper(box, new THREE.Color(0xd97941));
-      viewer.scene.scene.add(state.bboxHelper);
-    }
-
-    function updateClipVolume(profile) {
-      const volume = profileVolume(profile);
-      if (!state.clipVolume) {
-        state.clipVolume = new Potree.BoxVolume({ clip: true });
-        state.clipVolume.showVolumeLabel = false;
-        state.clipVolume.modifiable = true;
-        viewer.scene.addVolume(state.clipVolume);
-      }
-
-      state.clipVolume.clip = true;
-      state.clipVolume.visible = true;
-      state.clipVolume.position.set(volume.centerX, volume.centerY, volume.centerZ);
-      state.clipVolume.rotation.set(0, 0, volume.angle);
-      state.clipVolume.scale.set(volume.scaleX, volume.scaleY, volume.scaleZ);
-      state.clipVolume.update();
+      detailInfo.textContent = `Profil ${profile.label} | buffer ${formatNumber(profile.buffer)} m | délka ${formatNumber(profileLength(profile))} m`;
+      drawDetailView();
     }
 
     async function loadCloudData() {
@@ -922,6 +899,7 @@
         maxY: state.cloud.meta.bounds.max_y,
       });
       setStatus(`Načteno ${state.cloud.meta.point_count} bodů pro 2D zobrazení.`);
+      drawDetailView();
     }
 
     function addProfile(startWorld, endWorld) {
@@ -944,7 +922,7 @@
       saveProfilesToLocal();
       renderProfileList();
       draw2D();
-      updatePotreeForSelection();
+      updateDetailSelection();
       setStatus(`Profil ${profile.label} byl uložen.`);
     }
 
@@ -962,7 +940,7 @@
           saveProfilesToLocal();
           renderProfileList();
           draw2D();
-          updatePotreeForSelection();
+          updateDetailSelection();
           setStatus(`Načteno ${state.profiles.length} profilů ze souboru.`);
         } catch (error) {
           setStatus(`Import profiles.json selhal: ${error.message}`, true);
@@ -1042,34 +1020,6 @@
       draw2D();
     }
 
-    function initPotree() {
-      window.viewer = new Potree.Viewer(document.getElementById("potree_render_area"));
-      viewer.setEDLEnabled(true);
-      viewer.setFOV(60);
-      viewer.setPointBudget(5_000_000);
-      viewer.setMinNodeSize(10);
-      viewer.setDescription("");
-      viewer.setBackground("gradient");
-      viewer.loadSettingsFromURL();
-      viewer.loadGUI(() => {
-        viewer.setLanguage("en");
-        viewer.toggleSidebar();
-      });
-
-      Potree.loadPointCloud(pointCloudPath, "MLS", (event) => {
-        state.pointCloud = event.pointcloud;
-        viewer.scene.addPointCloud(state.pointCloud);
-        const material = state.pointCloud.material;
-        material.activeAttributeName = "rgba";
-        material.size = 1;
-        material.minSize = 1;
-        material.pointSizeType = Potree.PointSizeType.ADAPTIVE;
-        material.shape = Potree.PointShape.SQUARE;
-        viewer.fitToScreen();
-        updatePotreeForSelection();
-      });
-    }
-
     drawProfileBtn.addEventListener("click", () => {
       state.drawMode = !state.drawMode;
       state.pendingStart = null;
@@ -1090,7 +1040,7 @@
       saveProfilesToLocal();
       renderProfileList();
       draw2D();
-      updatePotreeForSelection();
+      updateDetailSelection();
       setStatus(`Profil ${selected.label} byl smazán.`);
     });
 
@@ -1100,7 +1050,7 @@
       saveProfilesToLocal();
       renderProfileList();
       draw2D();
-      updatePotreeForSelection();
+      updateDetailSelection();
       setStatus("Všechny profily byly smazány.");
     });
 
@@ -1121,7 +1071,7 @@
       event.target.value = "";
     });
     reloadRemoteBtn.addEventListener("click", reloadProfilesFromRemote);
-    focusSelectedBtn.addEventListener("click", () => updatePotreeForSelection());
+    focusSelectedBtn.addEventListener("click", () => updateDetailSelection());
     backToViewerBtn.addEventListener("click", () => {
       window.location.href = "./index.html";
     });
@@ -1129,7 +1079,9 @@
     pointSizeRange.addEventListener("input", () => {
       state.pointSize = Number(pointSizeRange.value);
       draw2D();
+      drawDetailView();
     });
+
     bufferInput.addEventListener("change", () => {
       const selected = getSelectedProfile();
       if (!selected) return;
@@ -1137,7 +1089,7 @@
       saveProfilesToLocal();
       renderProfileList();
       draw2D();
-      updatePotreeForSelection();
+      updateDetailSelection();
     });
 
     zMinRange.addEventListener("input", syncZFromRanges);
@@ -1159,12 +1111,11 @@
     (async function init() {
       try {
         resizeCanvas();
-        initPotree();
         await Promise.all([loadCloudData(), loadProfiles()]);
         state.selectedProfileId = state.profiles[0]?.id ?? null;
         renderProfileList();
         draw2D();
-        updatePotreeForSelection();
+        updateDetailSelection();
       } catch (error) {
         console.error(error);
         setStatus(`Inicializace selhala: ${error.message}`, true);
