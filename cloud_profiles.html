@@ -435,6 +435,7 @@
       zMin: 0,
       zMax: 1,
       bboxHelper: null,
+      clipVolume: null,
       pointCloud: null,
       view: {
         scale: 1,
@@ -570,6 +571,26 @@
         maxY: Math.max(profile.y1, profile.y2) + buffer,
         minZ: state.zMin,
         maxZ: state.zMax,
+      };
+    }
+
+    function profileVolume(profile) {
+      const buffer = Math.max(0.1, Number(profile.buffer ?? 2));
+      const dx = profile.x2 - profile.x1;
+      const dy = profile.y2 - profile.y1;
+      const length = Math.max(Math.hypot(dx, dy), 0.1);
+      const centerX = (profile.x1 + profile.x2) / 2;
+      const centerY = (profile.y1 + profile.y2) / 2;
+      const centerZ = (state.zMin + state.zMax) / 2;
+      const height = Math.max(state.zMax - state.zMin, 0.1);
+      return {
+        centerX,
+        centerY,
+        centerZ,
+        angle: Math.atan2(dy, dx),
+        scaleX: length + buffer * 2,
+        scaleY: buffer * 2,
+        scaleZ: height,
       };
     }
 
@@ -816,6 +837,7 @@
       if (!profile) {
         potreeInfo.textContent = "Vyber profil vlevo nebo nakresli nový.";
         removeBboxHelper();
+        removeClipVolume();
         return;
       }
 
@@ -837,6 +859,9 @@
       viewer.scene.view.lookAt(target);
       viewer.setMoveSpeed(Math.max(span, 1));
       updateBboxHelper(bounds);
+      updateClipVolume(profile);
+      viewer.setClipTask(Potree.ClipTask.SHOW_INSIDE);
+      viewer.setClipMethod(Potree.ClipMethod.INSIDE_ANY);
     }
 
     function removeBboxHelper() {
@@ -844,6 +869,13 @@
         viewer.scene.scene.remove(state.bboxHelper);
       }
       state.bboxHelper = null;
+    }
+
+    function removeClipVolume() {
+      if (state.clipVolume && viewer?.scene?.removeVolume) {
+        viewer.scene.removeVolume(state.clipVolume);
+      }
+      state.clipVolume = null;
     }
 
     function updateBboxHelper(bounds) {
@@ -854,6 +886,23 @@
       );
       state.bboxHelper = new THREE.Box3Helper(box, new THREE.Color(0xd97941));
       viewer.scene.scene.add(state.bboxHelper);
+    }
+
+    function updateClipVolume(profile) {
+      const volume = profileVolume(profile);
+      if (!state.clipVolume) {
+        state.clipVolume = new Potree.BoxVolume({ clip: true });
+        state.clipVolume.showVolumeLabel = false;
+        state.clipVolume.modifiable = true;
+        viewer.scene.addVolume(state.clipVolume);
+      }
+
+      state.clipVolume.clip = true;
+      state.clipVolume.visible = true;
+      state.clipVolume.position.set(volume.centerX, volume.centerY, volume.centerZ);
+      state.clipVolume.rotation.set(0, 0, volume.angle);
+      state.clipVolume.scale.set(volume.scaleX, volume.scaleY, volume.scaleZ);
+      state.clipVolume.update();
     }
 
     async function loadCloudData() {
