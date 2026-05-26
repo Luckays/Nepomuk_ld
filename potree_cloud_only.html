@@ -31,16 +31,22 @@
       position: absolute;
       top: 16px;
       left: 16px;
+      min-width: 620px;
+      max-width: 760px;
       z-index: 1200;
       display: flex;
-      gap: 10px;
+      gap: 16px;
       align-items: center;
+      justify-content: space-between;
       padding: 12px 14px;
       border-radius: 16px;
       background: rgba(255, 251, 245, 0.92);
       border: 1px solid rgba(216, 205, 189, 0.95);
       box-shadow: 0 16px 32px rgba(72, 54, 27, 0.12);
       backdrop-filter: blur(8px);
+    }
+    .topbar-copy {
+      min-width: 0;
     }
     .topbar strong {
       display: block;
@@ -96,7 +102,7 @@
   <script src="./potree_scene/potree/libs/plasio/js/laslaz.js"></script>
 
   <div class="topbar">
-    <div>
+    <div class="topbar-copy">
       <strong>Nepomuk | Mračno bodů</strong>
       <span>Samostatný Potree pohled bez panoramat</span>
     </div>
