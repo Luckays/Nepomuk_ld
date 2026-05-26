@@ -255,6 +255,7 @@
           <button id="mode2dBtn" class="active" type="button">2D</button>
           <button id="mode3dBtn" type="button">3D Potree</button>
         </div>
+        <button id="cloudOnlyBtn" class="secondary" type="button">Mra?no full</button>
         <button id="fitBtn" class="two-d-only" type="button">Vycentrovat</button>
         <button id="firstBtn" class="secondary" type="button">První snímek</button>
         <button id="lastBtn" class="secondary" type="button">Poslední snímek</button>
@@ -389,6 +390,7 @@
       document.getElementById("lastBtn").textContent = "Poslední snímek";
       document.getElementById("prevBtn").textContent = "Předchozí";
       document.getElementById("nextBtn").textContent = "Další";
+      document.getElementById("cloudOnlyBtn").textContent = "Celé mračno";
       document.getElementById("resetZBtn").textContent = "Celá výška";
       document.querySelector("#cloudControls .control-label").textContent = "Výběr Z";
       const summaryLead = document.querySelector(".viewer-summary span:first-child");
@@ -1162,6 +1164,9 @@
     });
     document.getElementById("mode2dBtn").addEventListener("click", () => setViewMode("2d"));
     document.getElementById("mode3dBtn").addEventListener("click", () => setViewMode("3d"));
+    document.getElementById("cloudOnlyBtn").addEventListener("click", () => {
+      window.open("./potree_cloud_only.html", "_blank", "noopener,noreferrer");
+    });
     document.getElementById("fitBtn").addEventListener("click", () => {
       fitMapToData();
       renderActiveScene();
