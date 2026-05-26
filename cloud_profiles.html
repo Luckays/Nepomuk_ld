@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nepomuk | Profily mračna</title>
+  <link rel="stylesheet" type="text/css" href="./potree_scene/potree/build/potree/potree.css">
+  <link rel="stylesheet" type="text/css" href="./potree_scene/potree/libs/jquery-ui/jquery-ui.min.css">
+  <link rel="stylesheet" type="text/css" href="./potree_scene/potree/libs/openlayers3/ol.css">
+  <link rel="stylesheet" type="text/css" href="./potree_scene/potree/libs/spectrum/spectrum.css">
+  <link rel="stylesheet" type="text/css" href="./potree_scene/potree/libs/jstree/themes/mixed/style.css">
+  <style>
+    :root {
+      --bg: #efe6d7;
+      --panel: rgba(255, 251, 245, 0.96);
+      --line: #d8cdbd;
+      --ink: #1f2a30;
+      --muted: #67717a;
+      --accent: #0f6c66;
+      --accent-soft: #deeee8;
+      --danger: #a24632;
+      --warning: #d97941;
+      --shadow: rgba(72, 54, 27, 0.1);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(255, 247, 231, 0.95), transparent 28%),
+        linear-gradient(135deg, #f1eadf 0%, #e6dcc9 100%);
+    }
+    .app {
+      display: grid;
+      grid-template-columns: minmax(460px, 44%) minmax(520px, 1fr);
+      gap: 20px;
+      min-height: 100vh;
+      padding: 22px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(216, 205, 189, 0.95);
+      border-radius: 24px;
+      box-shadow: 0 20px 55px var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(8px);
+      min-height: 0;
+    }
+    .left-panel {
+      display: grid;
+      grid-template-rows: auto auto auto 1fr auto auto;
+    }
+    .right-panel {
+      position: relative;
+      min-height: 0;
+    }
+    .header { padding: 22px 24px 12px; }
+    h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: 0.01em; }
+    h1 { font-size: 1.48rem; }
+    h2 { font-size: 1.05rem; }
+    .subtle {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.94rem;
+      line-height: 1.45;
+      max-width: 68ch;
+    }
+    .toolbar, .controls, .top-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 0 24px 16px;
+    }
+    .controls {
+      gap: 14px 18px;
+      border-top: 1px solid rgba(216, 205, 189, 0.7);
+      border-bottom: 1px solid rgba(216, 205, 189, 0.7);
+      padding-top: 16px;
+      padding-bottom: 16px;
+      background: rgba(255, 255, 255, 0.34);
+    }
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .control-label { color: var(--muted); font-size: 0.88rem; }
+    button, input[type="file"]::file-selector-button {
+      border: 0;
+      border-radius: 999px;
+      background: var(--accent);
+      color: white;
+      padding: 10px 16px;
+      font-size: 0.92rem;
+      cursor: pointer;
+      transition: transform 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+      box-shadow: 0 6px 14px rgba(15, 108, 102, 0.14);
+    }
+    button:hover { transform: translateY(-1px); }
+    button.secondary, input[type="file"]::file-selector-button {
+      background: var(--accent-soft);
+      color: var(--accent);
+      box-shadow: none;
+    }
+    button.warn {
+      background: rgba(217, 121, 65, 0.16);
+      color: #a85b2e;
+      box-shadow: none;
+    }
+    button.danger {
+      background: rgba(162, 70, 50, 0.14);
+      color: var(--danger);
+      box-shadow: none;
+    }
+    button.active-mode {
+      background: var(--warning);
+      color: white;
+    }
+    input[type="range"] { accent-color: var(--accent); }
+    input[type="number"] {
+      width: 86px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      font: inherit;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.8);
+    }
+    .range-group {
+      display: grid;
+      gap: 8px;
+      min-width: 270px;
+    }
+    .range-values {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+    .dual-range {
+      position: relative;
+      width: 280px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+    }
+    .dual-range .track,
+    .dual-range .track-active {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 6px;
+      border-radius: 999px;
+    }
+    .dual-range .track { background: rgba(31, 42, 48, 0.12); }
+    .dual-range .track-active { background: rgba(15, 108, 102, 0.26); }
+    .dual-range input[type="range"] {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      margin: 0;
+      background: transparent;
+      pointer-events: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .dual-range input[type="range"]::-webkit-slider-thumb {
+      pointer-events: auto;
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+      cursor: pointer;
+    }
+    .dual-range input[type="range"]::-moz-range-thumb {
+      pointer-events: auto;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+      cursor: pointer;
+    }
+    .dual-range input[type="range"]::-webkit-slider-runnable-track,
+    .dual-range input[type="range"]::-moz-range-track {
+      background: transparent;
+      border: 0;
+    }
+    #pointSizeRange { width: 140px; }
+    .canvas-wrap {
+      padding: 0 20px 20px;
+      min-height: 0;
+    }
+    #mapCanvas {
+      width: 100%;
+      height: min(62vh, 760px);
+      display: block;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.78), rgba(238,231,221,0.94));
+      cursor: grab;
+    }
+    #mapCanvas.drawing { cursor: crosshair; }
+    #mapCanvas.dragging { cursor: grabbing; }
+    .profile-panel {
+      border-top: 1px solid rgba(216, 205, 189, 0.7);
+      padding: 16px 24px 22px;
+      background: rgba(255,255,255,0.24);
+    }
+    .profile-list {
+      display: grid;
+      gap: 8px;
+      max-height: 180px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+    .profile-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid rgba(216, 205, 189, 0.9);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.68);
+    }
+    .profile-row.selected {
+      border-color: rgba(15,108,102,0.55);
+      box-shadow: inset 0 0 0 1px rgba(15,108,102,0.22);
+      background: rgba(222, 238, 232, 0.72);
+    }
+    .profile-main strong {
+      display: block;
+      font-size: 0.94rem;
+    }
+    .profile-main span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-top: 2px;
+    }
+    .mini {
+      padding: 7px 12px;
+      font-size: 0.82rem;
+    }
+    .status {
+      padding: 0 24px 18px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      min-height: 1.25em;
+    }
+    .status.error { color: var(--danger); }
+    .right-panel .panel-head {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      z-index: 1200;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(255, 251, 245, 0.92);
+      border: 1px solid rgba(216, 205, 189, 0.95);
+      box-shadow: 0 16px 32px rgba(72, 54, 27, 0.12);
+      backdrop-filter: blur(8px);
+    }
+    .panel-head-copy span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.86rem;
+      margin-top: 2px;
+    }
+    .potree-shell {
+      position: absolute;
+      inset: 0;
+    }
+    #potree_render_area {
+      position: absolute;
+      inset: 0;
+      background-image: linear-gradient(180deg, #f6f0e6 0%, #ddd1c1 100%);
+    }
+    #potree_sidebar_container {
+      position: absolute;
+      inset: 0 auto 0 0;
+      z-index: 500;
+    }
+    @media (max-width: 1280px) {
+      .app { grid-template-columns: 1fr; }
+      .right-panel { min-height: 62vh; }
+    }
+  </style>
+</head>
+<body>
+  <script src="./potree_scene/potree/libs/jquery/jquery-3.1.1.min.js"></script>
+  <script src="./potree_scene/potree/libs/spectrum/spectrum.js"></script>
+  <script src="./potree_scene/potree/libs/jquery-ui/jquery-ui.min.js"></script>
+  <script src="./potree_scene/potree/libs/other/BinaryHeap.js"></script>
+  <script src="./potree_scene/potree/libs/tween/tween.min.js"></script>
+  <script src="./potree_scene/potree/libs/d3/d3.js"></script>
+  <script src="./potree_scene/potree/libs/proj4/proj4.js"></script>
+  <script src="./potree_scene/potree/libs/openlayers3/ol.js"></script>
+  <script src="./potree_scene/potree/libs/i18next/i18next.js"></script>
+  <script src="./potree_scene/potree/libs/jstree/jstree.js"></script>
+  <script src="./potree_scene/potree/build/potree/potree.js"></script>
+  <script src="./potree_scene/potree/libs/plasio/js/laslaz.js"></script>
+
+  <main class="app">
+    <section class="panel left-panel">
+      <div class="header">
+        <h1>Nepomuk | Profily mračna</h1>
+        <div class="subtle">Vlevo je 2D pohled nového mračna s výškovým řezem a kreslením profilů. Vpravo se po kliknutí na profil otevře stejná oblast v Potree s nastaveným bufferem.</div>
+      </div>
+
+      <div class="toolbar">
+        <button id="drawProfileBtn" type="button">Nový profil</button>
+        <button id="deleteProfileBtn" class="danger" type="button">Smazat vybraný</button>
+        <button id="fit2dBtn" class="secondary" type="button">Vycentrovat 2D</button>
+        <button id="exportProfilesBtn" class="secondary" type="button">Export profiles.json</button>
+        <label class="secondary" style="display:inline-flex;align-items:center;gap:8px;padding:0;">
+          <input id="importProfilesInput" type="file" accept=".json,application/json" style="display:none">
+          <span style="padding:10px 16px;display:inline-flex;">Import profiles.json</span>
+        </label>
+      </div>
+
+      <div class="controls">
+        <div class="control-group">
+          <span class="control-label">Výběr Z</span>
+          <div class="range-group">
+            <div class="range-values">
+              <span id="zMinLabel">-</span>
+              <span id="zMaxLabel">-</span>
+            </div>
+            <div class="dual-range">
+              <div class="track"></div>
+              <div id="zActiveTrack" class="track-active"></div>
+              <input id="zMinRange" type="range" min="0" max="1000" value="0">
+              <input id="zMaxRange" type="range" min="0" max="1000" value="1000">
+            </div>
+          </div>
+          <button id="resetZBtn" class="secondary" type="button">Celá výška</button>
+        </div>
+        <div class="control-group">
+          <span class="control-label">Velikost bodu</span>
+          <input id="pointSizeRange" type="range" min="0.4" max="3.5" step="0.1" value="1">
+        </div>
+        <div class="control-group">
+          <span class="control-label">Buffer profilu</span>
+          <input id="bufferInput" type="number" min="0.1" step="0.1" value="2.0">
+        </div>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="mapCanvas"></canvas>
+      </div>
+
+      <div class="status" id="leftStatus">Načítám 2D data mračna...</div>
+
+      <div class="profile-panel">
+        <div class="top-actions" style="padding:0 0 12px;">
+          <h3>Profily</h3>
+          <button id="clearProfilesBtn" class="warn mini" type="button">Smazat vše</button>
+          <button id="reloadRemoteBtn" class="secondary mini" type="button">Načíst původní profiles.json</button>
+        </div>
+        <div id="profileList" class="profile-list"></div>
+      </div>
+    </section>
+
+    <section class="panel right-panel">
+      <div class="panel-head">
+        <div class="panel-head-copy">
+          <h2>Potree | Detail profilu</h2>
+          <span id="potreeInfo">Vyber profil vlevo nebo nakresli nový.</span>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <button id="focusSelectedBtn" class="secondary" type="button">Zaměřit vybraný</button>
+          <button id="backToViewerBtn" type="button">Zpět do vieweru</button>
+        </div>
+      </div>
+      <div class="potree-shell">
+        <div id="potree_render_area"></div>
+        <div id="potree_sidebar_container"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = "nepomuk_cloud_profiles_v1";
+    const REMOTE_PROFILES_PATH = "./profiles.json";
+    const pointCloudPath = "./potree_scene_cloud_only/pointcloud_v17/cloud.js";
+
+    const canvas = document.getElementById("mapCanvas");
+    const ctx = canvas.getContext("2d");
+    const leftStatus = document.getElementById("leftStatus");
+    const potreeInfo = document.getElementById("potreeInfo");
+    const drawProfileBtn = document.getElementById("drawProfileBtn");
+    const deleteProfileBtn = document.getElementById("deleteProfileBtn");
+    const fit2dBtn = document.getElementById("fit2dBtn");
+    const exportProfilesBtn = document.getElementById("exportProfilesBtn");
+    const importProfilesInput = document.getElementById("importProfilesInput");
+    const clearProfilesBtn = document.getElementById("clearProfilesBtn");
+    const reloadRemoteBtn = document.getElementById("reloadRemoteBtn");
+    const bufferInput = document.getElementById("bufferInput");
+    const pointSizeRange = document.getElementById("pointSizeRange");
+    const zMinRange = document.getElementById("zMinRange");
+    const zMaxRange = document.getElementById("zMaxRange");
+    const zMinLabel = document.getElementById("zMinLabel");
+    const zMaxLabel = document.getElementById("zMaxLabel");
+    const zActiveTrack = document.getElementById("zActiveTrack");
+    const resetZBtn = document.getElementById("resetZBtn");
+    const profileList = document.getElementById("profileList");
+    const focusSelectedBtn = document.getElementById("focusSelectedBtn");
+    const backToViewerBtn = document.getElementById("backToViewerBtn");
+
+    const state = {
+      cloud: null,
+      profiles: [],
+      selectedProfileId: null,
+      drawMode: false,
+      pendingStart: null,
+      drag: null,
+      pointSize: 1,
+      zMin: 0,
+      zMax: 1,
+      bboxHelper: null,
+      pointCloud: null,
+      view: {
+        scale: 1,
+        offsetX: 0,
+        offsetY: 0,
+      },
+    };
+
+    function setStatus(text, isError = false) {
+      leftStatus.textContent = text;
+      leftStatus.classList.toggle("error", isError);
+    }
+
+    function formatNumber(value) {
+      return Number(value).toFixed(2);
+    }
+
+    function sanitizeProfile(profile) {
+      return {
+        id: String(profile.id ?? Date.now()),
+        label: String(profile.label ?? profile.id ?? ""),
+        x1: Number(profile.x1),
+        y1: Number(profile.y1),
+        x2: Number(profile.x2),
+        y2: Number(profile.y2),
+        buffer: Math.max(0.1, Number(profile.buffer ?? 2)),
+      };
+    }
+
+    function profileLength(profile) {
+      return Math.hypot(profile.x2 - profile.x1, profile.y2 - profile.y1);
+    }
+
+    function getNextProfileLabel() {
+      const numeric = state.profiles
+        .map((profile) => Number.parseInt(profile.label, 10))
+        .filter((value) => Number.isFinite(value));
+      return String((numeric.length ? Math.max(...numeric) : 0) + 1);
+    }
+
+    function saveProfilesToLocal() {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          version: 1,
+          profiles: state.profiles,
+          updated_at: new Date().toISOString(),
+        })
+      );
+    }
+
+    async function loadProfiles() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          const list = Array.isArray(parsed) ? parsed : parsed.profiles;
+          if (Array.isArray(list)) {
+            state.profiles = list.map(sanitizeProfile);
+            return;
+          }
+        } catch (error) {
+          console.warn("Local profiles could not be parsed", error);
+        }
+      }
+
+      try {
+        const response = await fetch(REMOTE_PROFILES_PATH);
+        if (response.ok) {
+          const parsed = await response.json();
+          const list = Array.isArray(parsed) ? parsed : parsed.profiles;
+          state.profiles = Array.isArray(list) ? list.map(sanitizeProfile) : [];
+        }
+      } catch (error) {
+        console.warn("Remote profiles.json is not available", error);
+      }
+    }
+
+    async function reloadProfilesFromRemote() {
+      try {
+        const response = await fetch(REMOTE_PROFILES_PATH, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const parsed = await response.json();
+        const list = Array.isArray(parsed) ? parsed : parsed.profiles;
+        state.profiles = Array.isArray(list) ? list.map(sanitizeProfile) : [];
+        state.selectedProfileId = state.profiles[0]?.id ?? null;
+        saveProfilesToLocal();
+        renderProfileList();
+        draw2D();
+        updatePotreeForSelection();
+        setStatus("Profily byly načteny z profiles.json.");
+      } catch (error) {
+        setStatus(`Načtení profiles.json selhalo: ${error.message}`, true);
+      }
+    }
+
+    function exportProfiles() {
+      const payload = {
+        project: "Nepomuk",
+        source: "cloud_profiles.html",
+        exported_at: new Date().toISOString(),
+        profiles: state.profiles,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "profiles.json";
+      link.click();
+      URL.revokeObjectURL(url);
+      setStatus("Profiles.json byl exportován.");
+    }
+
+    function setSelectedProfile(profileId) {
+      state.selectedProfileId = profileId;
+      renderProfileList();
+      draw2D();
+      updatePotreeForSelection();
+    }
+
+    function getSelectedProfile() {
+      return state.profiles.find((profile) => profile.id === state.selectedProfileId) || null;
+    }
+
+    function profileBounds(profile) {
+      const buffer = Math.max(0.1, Number(profile.buffer ?? 2));
+      return {
+        minX: Math.min(profile.x1, profile.x2) - buffer,
+        maxX: Math.max(profile.x1, profile.x2) + buffer,
+        minY: Math.min(profile.y1, profile.y2) - buffer,
+        maxY: Math.max(profile.y1, profile.y2) + buffer,
+        minZ: state.zMin,
+        maxZ: state.zMax,
+      };
+    }
+
+    function fitViewToBounds(bounds) {
+      const width = canvas.clientWidth || 800;
+      const height = canvas.clientHeight || 600;
+      const pad = 36;
+      const spanX = Math.max(bounds.maxX - bounds.minX, 1e-6);
+      const spanY = Math.max(bounds.maxY - bounds.minY, 1e-6);
+      const scale = Math.min((width - pad * 2) / spanX, (height - pad * 2) / spanY);
+      const contentWidth = spanX * scale;
+      const contentHeight = spanY * scale;
+      state.view.scale = scale;
+      state.view.offsetX = pad + (width - pad * 2 - contentWidth) / 2 - bounds.minX * scale;
+      state.view.offsetY = pad + (height - pad * 2 - contentHeight) / 2 + bounds.maxY * scale;
+      draw2D();
+    }
+
+    function worldToScreen(x, y) {
+      return {
+        x: x * state.view.scale + state.view.offsetX,
+        y: -y * state.view.scale + state.view.offsetY,
+      };
+    }
+
+    function screenToWorld(x, y) {
+      return {
+        x: (x - state.view.offsetX) / state.view.scale,
+        y: -(y - state.view.offsetY) / state.view.scale,
+      };
+    }
+
+    function resizeCanvas() {
+      const ratio = window.devicePixelRatio || 1;
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      if (state.cloud) {
+        fitViewToBounds({
+          minX: state.cloud.meta.bounds.min_x,
+          maxX: state.cloud.meta.bounds.max_x,
+          minY: state.cloud.meta.bounds.min_y,
+          maxY: state.cloud.meta.bounds.max_y,
+        });
+      }
+    }
+
+    function draw2D() {
+      if (!state.cloud) return;
+
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      ctx.clearRect(0, 0, width, height);
+
+      const filteredPoints = state.cloud.points.filter((point) => point[2] >= state.zMin && point[2] <= state.zMax);
+      for (const point of filteredPoints) {
+        const screen = worldToScreen(point[0], point[1]);
+        if (screen.x < -8 || screen.y < -8 || screen.x > width + 8 || screen.y > height + 8) {
+          continue;
+        }
+        ctx.fillStyle = `rgb(${point[3]}, ${point[4]}, ${point[5]})`;
+        const size = state.pointSize;
+        ctx.fillRect(screen.x - size / 2, screen.y - size / 2, size, size);
+      }
+
+      const selected = getSelectedProfile();
+      if (selected) {
+        const bbox = profileBounds(selected);
+        const p1 = worldToScreen(bbox.minX, bbox.maxY);
+        const p2 = worldToScreen(bbox.maxX, bbox.minY);
+        ctx.save();
+        ctx.strokeStyle = "rgba(217, 121, 65, 0.85)";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([8, 6]);
+        ctx.strokeRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+        ctx.restore();
+      }
+
+      for (const profile of state.profiles) {
+        const a = worldToScreen(profile.x1, profile.y1);
+        const b = worldToScreen(profile.x2, profile.y2);
+        const isSelected = profile.id === state.selectedProfileId;
+        ctx.save();
+        ctx.strokeStyle = isSelected ? "#d97941" : "#0f6c66";
+        ctx.lineWidth = isSelected ? 3 : 2;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+
+        const midX = (a.x + b.x) / 2;
+        const midY = (a.y + b.y) / 2;
+        ctx.fillStyle = isSelected ? "#d97941" : "#1f2a30";
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, 4.5, 0, Math.PI * 2);
+        ctx.arc(b.x, b.y, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "rgba(255, 251, 245, 0.92)";
+        ctx.strokeStyle = "rgba(31, 42, 48, 0.12)";
+        ctx.lineWidth = 1;
+        const label = profile.label;
+        const metrics = ctx.measureText(label);
+        const labelW = metrics.width + 14;
+        ctx.beginPath();
+        ctx.roundRect(midX - labelW / 2, midY - 12, labelW, 22, 11);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#1f2a30";
+        ctx.font = "12px Segoe UI";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(label, midX, midY - 1);
+        ctx.restore();
+      }
+
+      if (state.drawMode && state.pendingStart) {
+        const screen = worldToScreen(state.pendingStart.x, state.pendingStart.y);
+        ctx.save();
+        ctx.fillStyle = "#d97941";
+        ctx.beginPath();
+        ctx.arc(screen.x, screen.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function hitTestProfile(screenX, screenY) {
+      let best = null;
+      let bestDistance = 12;
+      for (const profile of state.profiles) {
+        const a = worldToScreen(profile.x1, profile.y1);
+        const b = worldToScreen(profile.x2, profile.y2);
+        const distance = pointToSegmentDistance(screenX, screenY, a.x, a.y, b.x, b.y);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = profile;
+        }
+      }
+      return best;
+    }
+
+    function pointToSegmentDistance(px, py, x1, y1, x2, y2) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      if (dx === 0 && dy === 0) return Math.hypot(px - x1, py - y1);
+      const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)));
+      const cx = x1 + t * dx;
+      const cy = y1 + t * dy;
+      return Math.hypot(px - cx, py - cy);
+    }
+
+    function updateZTrack() {
+      const minValue = Number(zMinRange.value);
+      const maxValue = Number(zMaxRange.value);
+      const start = (Math.min(minValue, maxValue) / Number(zMinRange.max)) * 100;
+      const end = (Math.max(minValue, maxValue) / Number(zMaxRange.max)) * 100;
+      zActiveTrack.style.left = `${start}%`;
+      zActiveTrack.style.right = `${100 - end}%`;
+    }
+
+    function syncZFromRanges() {
+      const bounds = state.cloud.meta.bounds;
+      let minIndex = Number(zMinRange.value);
+      let maxIndex = Number(zMaxRange.value);
+      if (minIndex > maxIndex) {
+        [minIndex, maxIndex] = [maxIndex, minIndex];
+        zMinRange.value = minIndex;
+        zMaxRange.value = maxIndex;
+      }
+      const total = Number(zMinRange.max);
+      const zSpan = bounds.max_z - bounds.min_z;
+      state.zMin = bounds.min_z + (minIndex / total) * zSpan;
+      state.zMax = bounds.min_z + (maxIndex / total) * zSpan;
+      zMinLabel.textContent = formatNumber(state.zMin);
+      zMaxLabel.textContent = formatNumber(state.zMax);
+      updateZTrack();
+      draw2D();
+      updatePotreeForSelection();
+    }
+
+    function resetZFilter() {
+      zMinRange.value = 0;
+      zMaxRange.value = zMaxRange.max;
+      syncZFromRanges();
+    }
+
+    function renderProfileList() {
+      profileList.innerHTML = "";
+      if (!state.profiles.length) {
+        const empty = document.createElement("div");
+        empty.className = "profile-row";
+        empty.innerHTML = '<div class="profile-main"><strong>Zatím žádné profily</strong><span>Klikni na "Nový profil" a zadej 2 body v mapě.</span></div>';
+        profileList.appendChild(empty);
+        return;
+      }
+
+      for (const profile of state.profiles) {
+        const row = document.createElement("div");
+        row.className = `profile-row${profile.id === state.selectedProfileId ? " selected" : ""}`;
+        row.innerHTML = `
+          <div class="profile-main">
+            <strong>Profil ${profile.label}</strong>
+            <span>Délka ${formatNumber(profileLength(profile))} m | buffer ${formatNumber(profile.buffer)} m</span>
+          </div>
+        `;
+
+        const selectBtn = document.createElement("button");
+        selectBtn.className = "mini secondary";
+        selectBtn.type = "button";
+        selectBtn.textContent = "Otevřít";
+        selectBtn.addEventListener("click", () => setSelectedProfile(profile.id));
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "mini danger";
+        deleteBtn.type = "button";
+        deleteBtn.textContent = "Smazat";
+        deleteBtn.addEventListener("click", () => {
+          state.profiles = state.profiles.filter((item) => item.id !== profile.id);
+          if (state.selectedProfileId === profile.id) {
+            state.selectedProfileId = state.profiles[0]?.id ?? null;
+          }
+          saveProfilesToLocal();
+          renderProfileList();
+          draw2D();
+          updatePotreeForSelection();
+          setStatus(`Profil ${profile.label} byl smazán.`);
+        });
+
+        row.appendChild(selectBtn);
+        row.appendChild(deleteBtn);
+        row.addEventListener("click", (event) => {
+          if (event.target.tagName === "BUTTON") return;
+          setSelectedProfile(profile.id);
+        });
+        profileList.appendChild(row);
+      }
+    }
+
+    function updatePotreeForSelection() {
+      const profile = getSelectedProfile();
+      if (!profile) {
+        potreeInfo.textContent = "Vyber profil vlevo nebo nakresli nový.";
+        removeBboxHelper();
+        return;
+      }
+
+      potreeInfo.textContent = `Profil ${profile.label} | buffer ${formatNumber(profile.buffer)} m | délka ${formatNumber(profileLength(profile))} m`;
+      if (!state.pointCloud || !window.viewer) return;
+
+      const bounds = profileBounds(profile);
+      const centerX = (bounds.minX + bounds.maxX) / 2;
+      const centerY = (bounds.minY + bounds.maxY) / 2;
+      const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+      const span = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY, bounds.maxZ - bounds.minZ, 1);
+      const target = new THREE.Vector3(centerX, centerY, centerZ);
+      const position = new THREE.Vector3(
+        centerX - span * 1.5,
+        centerY - span * 1.3,
+        centerZ + span * 0.95
+      );
+      viewer.scene.view.position.set(position.x, position.y, position.z);
+      viewer.scene.view.lookAt(target);
+      viewer.setMoveSpeed(Math.max(span, 1));
+      updateBboxHelper(bounds);
+    }
+
+    function removeBboxHelper() {
+      if (state.bboxHelper && viewer?.scene?.scene) {
+        viewer.scene.scene.remove(state.bboxHelper);
+      }
+      state.bboxHelper = null;
+    }
+
+    function updateBboxHelper(bounds) {
+      removeBboxHelper();
+      const box = new THREE.Box3(
+        new THREE.Vector3(bounds.minX, bounds.minY, bounds.minZ),
+        new THREE.Vector3(bounds.maxX, bounds.maxY, bounds.maxZ)
+      );
+      state.bboxHelper = new THREE.Box3Helper(box, new THREE.Color(0xd97941));
+      viewer.scene.scene.add(state.bboxHelper);
+    }
+
+    async function loadCloudData() {
+      const response = await fetch("./cloud_only_2d.json");
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      state.cloud = await response.json();
+      state.zMin = state.cloud.meta.bounds.min_z;
+      state.zMax = state.cloud.meta.bounds.max_z;
+      zMinLabel.textContent = formatNumber(state.zMin);
+      zMaxLabel.textContent = formatNumber(state.zMax);
+      fitViewToBounds({
+        minX: state.cloud.meta.bounds.min_x,
+        maxX: state.cloud.meta.bounds.max_x,
+        minY: state.cloud.meta.bounds.min_y,
+        maxY: state.cloud.meta.bounds.max_y,
+      });
+      setStatus(`Načteno ${state.cloud.meta.point_count} bodů pro 2D zobrazení.`);
+    }
+
+    function addProfile(startWorld, endWorld) {
+      const label = getNextProfileLabel();
+      const profile = sanitizeProfile({
+        id: `profile_${Date.now()}`,
+        label,
+        x1: startWorld.x,
+        y1: startWorld.y,
+        x2: endWorld.x,
+        y2: endWorld.y,
+        buffer: Number(bufferInput.value || 2),
+      });
+      state.profiles.push(profile);
+      state.selectedProfileId = profile.id;
+      state.pendingStart = null;
+      state.drawMode = false;
+      canvas.classList.remove("drawing");
+      drawProfileBtn.classList.remove("active-mode");
+      saveProfilesToLocal();
+      renderProfileList();
+      draw2D();
+      updatePotreeForSelection();
+      setStatus(`Profil ${profile.label} byl uložen.`);
+    }
+
+    function importProfilesFromFile(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(String(reader.result));
+          const list = Array.isArray(parsed) ? parsed : parsed.profiles;
+          if (!Array.isArray(list)) {
+            throw new Error("Soubor neobsahuje pole profiles.");
+          }
+          state.profiles = list.map(sanitizeProfile);
+          state.selectedProfileId = state.profiles[0]?.id ?? null;
+          saveProfilesToLocal();
+          renderProfileList();
+          draw2D();
+          updatePotreeForSelection();
+          setStatus(`Načteno ${state.profiles.length} profilů ze souboru.`);
+        } catch (error) {
+          setStatus(`Import profiles.json selhal: ${error.message}`, true);
+        }
+      };
+      reader.readAsText(file, "utf-8");
+    }
+
+    function onCanvasPointerDown(event) {
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      if (state.drawMode) {
+        const world = screenToWorld(x, y);
+        if (!state.pendingStart) {
+          state.pendingStart = world;
+          setStatus("Klikni druhý bod profilu.");
+          draw2D();
+        } else {
+          addProfile(state.pendingStart, world);
+        }
+        return;
+      }
+
+      state.drag = {
+        startX: x,
+        startY: y,
+        offsetX: state.view.offsetX,
+        offsetY: state.view.offsetY,
+        moved: false,
+      };
+      canvas.classList.add("dragging");
+    }
+
+    function onCanvasPointerMove(event) {
+      if (!state.drag) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const dx = x - state.drag.startX;
+      const dy = y - state.drag.startY;
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+        state.drag.moved = true;
+      }
+      state.view.offsetX = state.drag.offsetX + dx;
+      state.view.offsetY = state.drag.offsetY + dy;
+      draw2D();
+    }
+
+    function onCanvasPointerUp(event) {
+      if (!state.drag) return;
+      canvas.classList.remove("dragging");
+      const wasMoved = state.drag.moved;
+      state.drag = null;
+      if (wasMoved) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const hit = hitTestProfile(x, y);
+      if (hit) {
+        setSelectedProfile(hit.id);
+      }
+    }
+
+    function onCanvasWheel(event) {
+      event.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const worldBefore = screenToWorld(x, y);
+      const zoomFactor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
+      state.view.scale = Math.max(0.2, Math.min(600, state.view.scale * zoomFactor));
+      const worldAfter = worldToScreen(worldBefore.x, worldBefore.y);
+      state.view.offsetX += x - worldAfter.x;
+      state.view.offsetY += y - worldAfter.y;
+      draw2D();
+    }
+
+    function initPotree() {
+      window.viewer = new Potree.Viewer(document.getElementById("potree_render_area"));
+      viewer.setEDLEnabled(true);
+      viewer.setFOV(60);
+      viewer.setPointBudget(5_000_000);
+      viewer.setMinNodeSize(10);
+      viewer.setDescription("");
+      viewer.setBackground("gradient");
+      viewer.loadSettingsFromURL();
+      viewer.loadGUI(() => {
+        viewer.setLanguage("en");
+        viewer.toggleSidebar();
+      });
+
+      Potree.loadPointCloud(pointCloudPath, "MLS", (event) => {
+        state.pointCloud = event.pointcloud;
+        viewer.scene.addPointCloud(state.pointCloud);
+        const material = state.pointCloud.material;
+        material.activeAttributeName = "rgba";
+        material.size = 1;
+        material.minSize = 1;
+        material.pointSizeType = Potree.PointSizeType.ADAPTIVE;
+        material.shape = Potree.PointShape.SQUARE;
+        viewer.fitToScreen();
+        updatePotreeForSelection();
+      });
+    }
+
+    drawProfileBtn.addEventListener("click", () => {
+      state.drawMode = !state.drawMode;
+      state.pendingStart = null;
+      drawProfileBtn.classList.toggle("active-mode", state.drawMode);
+      canvas.classList.toggle("drawing", state.drawMode);
+      setStatus(state.drawMode ? "Klikni první a druhý bod profilu v mapě." : "Režim kreslení profilu je vypnutý.");
+      draw2D();
+    });
+
+    deleteProfileBtn.addEventListener("click", () => {
+      const selected = getSelectedProfile();
+      if (!selected) {
+        setStatus("Nejdřív vyber profil, který chceš smazat.", true);
+        return;
+      }
+      state.profiles = state.profiles.filter((profile) => profile.id !== selected.id);
+      state.selectedProfileId = state.profiles[0]?.id ?? null;
+      saveProfilesToLocal();
+      renderProfileList();
+      draw2D();
+      updatePotreeForSelection();
+      setStatus(`Profil ${selected.label} byl smazán.`);
+    });
+
+    clearProfilesBtn.addEventListener("click", () => {
+      state.profiles = [];
+      state.selectedProfileId = null;
+      saveProfilesToLocal();
+      renderProfileList();
+      draw2D();
+      updatePotreeForSelection();
+      setStatus("Všechny profily byly smazány.");
+    });
+
+    fit2dBtn.addEventListener("click", () => {
+      fitViewToBounds({
+        minX: state.cloud.meta.bounds.min_x,
+        maxX: state.cloud.meta.bounds.max_x,
+        minY: state.cloud.meta.bounds.min_y,
+        maxY: state.cloud.meta.bounds.max_y,
+      });
+      setStatus("2D pohled byl vycentrován.");
+    });
+
+    exportProfilesBtn.addEventListener("click", exportProfiles);
+    importProfilesInput.addEventListener("change", (event) => {
+      const file = event.target.files?.[0];
+      if (file) importProfilesFromFile(file);
+      event.target.value = "";
+    });
+    reloadRemoteBtn.addEventListener("click", reloadProfilesFromRemote);
+    focusSelectedBtn.addEventListener("click", () => updatePotreeForSelection());
+    backToViewerBtn.addEventListener("click", () => {
+      window.location.href = "./index.html";
+    });
+
+    pointSizeRange.addEventListener("input", () => {
+      state.pointSize = Number(pointSizeRange.value);
+      draw2D();
+    });
+    bufferInput.addEventListener("change", () => {
+      const selected = getSelectedProfile();
+      if (!selected) return;
+      selected.buffer = Math.max(0.1, Number(bufferInput.value || 2));
+      saveProfilesToLocal();
+      renderProfileList();
+      draw2D();
+      updatePotreeForSelection();
+    });
+
+    zMinRange.addEventListener("input", syncZFromRanges);
+    zMaxRange.addEventListener("input", syncZFromRanges);
+    resetZBtn.addEventListener("click", resetZFilter);
+
+    canvas.addEventListener("mousedown", onCanvasPointerDown);
+    canvas.addEventListener("mousemove", onCanvasPointerMove);
+    canvas.addEventListener("mouseup", onCanvasPointerUp);
+    canvas.addEventListener("mouseleave", () => {
+      if (state.drag) {
+        canvas.classList.remove("dragging");
+        state.drag = null;
+      }
+    });
+    canvas.addEventListener("wheel", onCanvasWheel, { passive: false });
+    window.addEventListener("resize", resizeCanvas);
+
+    (async function init() {
+      try {
+        resizeCanvas();
+        initPotree();
+        await Promise.all([loadCloudData(), loadProfiles()]);
+        state.selectedProfileId = state.profiles[0]?.id ?? null;
+        renderProfileList();
+        draw2D();
+        updatePotreeForSelection();
+      } catch (error) {
+        console.error(error);
+        setStatus(`Inicializace selhala: ${error.message}`, true);
+      }
+    })();
+  </script>
+</body>
+</html>
