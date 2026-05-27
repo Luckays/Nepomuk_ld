@@ -544,6 +544,19 @@
       };
     }
 
+    function projectPointToProfile(point, profile) {
+      const dx = profile.x2 - profile.x1;
+      const dy = profile.y2 - profile.y1;
+      const length = Math.max(Math.hypot(dx, dy), 1e-9);
+      const ux = dx / length;
+      const uy = dy / length;
+      const vx = point[0] - profile.x1;
+      const vy = point[1] - profile.y1;
+      const along = vx * ux + vy * uy;
+      const cross = -vx * uy + vy * ux;
+      return { along, cross, length };
+    }
+
     function fitViewToBounds(bounds) {
       const width = canvas.clientWidth || 800;
       const height = canvas.clientHeight || 600;
@@ -718,21 +731,37 @@
         return;
       }
 
-      const bounds = profileBounds(selected);
-      fitDetailToBounds(bounds);
-      const filteredPoints = state.cloud.points.filter((point) =>
-        point[2] >= state.zMin &&
-        point[2] <= state.zMax &&
-        point[0] >= bounds.minX &&
-        point[0] <= bounds.maxX &&
-        point[1] >= bounds.minY &&
-        point[1] <= bounds.maxY
-      );
+      const buffer = Math.max(0.1, Number(selected.buffer ?? 2));
+      const profileLen = profileLength(selected);
+      const projectedPoints = [];
+      for (const point of state.cloud.points) {
+        if (point[2] < state.zMin || point[2] > state.zMax) continue;
+        const projected = projectPointToProfile(point, selected);
+        if (projected.along < 0 || projected.along > projected.length) continue;
+        if (Math.abs(projected.cross) > buffer) continue;
+        projectedPoints.push({
+          along: projected.along,
+          z: point[2],
+          color: [point[3], point[4], point[5]],
+        });
+      }
 
-      drawPointCloud(detailCtx, filteredPoints, worldToDetailScreen, Math.max(1, state.pointSize + 0.2));
+      fitDetailToBounds({
+        minX: 0,
+        maxX: Math.max(profileLen, 0.1),
+        minY: state.zMin,
+        maxY: state.zMax,
+      });
 
-      const a = worldToDetailScreen(selected.x1, selected.y1);
-      const b = worldToDetailScreen(selected.x2, selected.y2);
+      for (const point of projectedPoints) {
+        const screen = worldToDetailScreen(point.along, point.z);
+        detailCtx.fillStyle = `rgb(${point.color[0]}, ${point.color[1]}, ${point.color[2]})`;
+        const size = Math.max(1, state.pointSize + 0.2);
+        detailCtx.fillRect(screen.x - size / 2, screen.y - size / 2, size, size);
+      }
+
+      const a = worldToDetailScreen(0, state.zMin);
+      const b = worldToDetailScreen(profileLen, state.zMin);
       detailCtx.save();
       detailCtx.strokeStyle = "#d97941";
       detailCtx.lineWidth = 3;
@@ -747,15 +776,40 @@
       detailCtx.arc(b.x, b.y, 5, 0, Math.PI * 2);
       detailCtx.fill();
 
-      const p1 = worldToDetailScreen(bounds.minX, bounds.maxY);
-      const p2 = worldToDetailScreen(bounds.maxX, bounds.minY);
+      const p1 = worldToDetailScreen(0, state.zMax);
+      const p2 = worldToDetailScreen(profileLen, state.zMin);
       detailCtx.strokeStyle = "rgba(217, 121, 65, 0.85)";
       detailCtx.lineWidth = 1.5;
       detailCtx.setLineDash([8, 6]);
       detailCtx.strokeRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+
+      detailCtx.setLineDash([]);
+      detailCtx.strokeStyle = "rgba(31, 42, 48, 0.24)";
+      detailCtx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const z = state.zMin + ((state.zMax - state.zMin) * i) / 4;
+        const left = worldToDetailScreen(0, z);
+        const right = worldToDetailScreen(profileLen, z);
+        detailCtx.beginPath();
+        detailCtx.moveTo(left.x, left.y);
+        detailCtx.lineTo(right.x, right.y);
+        detailCtx.stroke();
+      }
+
+      detailCtx.fillStyle = "#1f2a30";
+      detailCtx.font = "12px Segoe UI";
+      detailCtx.textAlign = "left";
+      detailCtx.textBaseline = "top";
+      detailCtx.fillText(`0.00 m`, a.x + 4, a.y - 22);
+      detailCtx.textAlign = "right";
+      detailCtx.fillText(`${formatNumber(profileLen)} m`, b.x - 4, b.y - 22);
+      detailCtx.textAlign = "left";
+      detailCtx.textBaseline = "middle";
+      detailCtx.fillText(`${formatNumber(state.zMax)} m`, p1.x + 8, p1.y + 12);
+      detailCtx.fillText(`${formatNumber(state.zMin)} m`, p2.x + 8, p2.y - 12);
       detailCtx.restore();
 
-      detailStatus.textContent = `Profil ${selected.label}: ${filteredPoints.length} bodů v detailu | buffer ${formatNumber(selected.buffer)} m | Z ${formatNumber(state.zMin)} až ${formatNumber(state.zMax)} m`;
+      detailStatus.textContent = `Profil ${selected.label}: ${projectedPoints.length} bodů v řezu | buffer ${formatNumber(selected.buffer)} m | délka ${formatNumber(profileLen)} m | Z ${formatNumber(state.zMin)} až ${formatNumber(state.zMax)} m`;
     }
 
     function hitTestProfile(screenX, screenY) {
